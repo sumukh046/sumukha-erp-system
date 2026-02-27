@@ -1,7 +1,13 @@
+
+
 // ===============================
 // INVOICE CORE (NO DOM)
 // ===============================
 
+let revenueChartInstance = null;
+let editingInvoiceIndex = null;
+let editingCustomerIndex = null;
+let customerChoicesInstance = null;
 const InvoiceCore = (function () {
 
     let invoiceCounter = parseInt(localStorage.getItem("invoiceCounter")) || 1;
@@ -69,13 +75,12 @@ document.addEventListener("input", function (e) {
         e.target.classList.contains("rate")) {
         calculateInvoiceLive();
     }
-});
-
-document.addEventListener("change", function (e) {
-    if (e.target.name === "taxType") {
+     if (e.target.name === "taxType") {
         calculateInvoiceLive();
     }
 });
+
+
 
 function calculateInvoiceLive() {
 
@@ -244,7 +249,9 @@ function generateInvoicePDF(invoiceData = null) {
 function saveInvoiceRecord() {
 
     const invoiceNo = document.getElementById("invoiceNumber").value;
+    const customerName = document.getElementById("billName").value;
     const invoiceDate = document.getElementById("invoiceDate").value;
+    const dueDate = document.getElementById("dueDate").value;
 
     if (!invoiceNo || !invoiceDate) {
         alert("Invoice number and date required");
@@ -290,27 +297,49 @@ function saveInvoiceRecord() {
 
     let invoices = JSON.parse(localStorage.getItem("savedInvoices")) || [];
 
+  const invoiceData = {
+    invoiceNo,
+    invoiceDate,
+    dueDate,
+    customerName,
+    items,
+    subtotal,
+    cgst,
+    sgst,
+    gst,
+    total,
+    status: "Pending"
+};
+
+let message = "";
+
+if (editingInvoiceIndex !== null) {
+
+    invoiceData.status = invoices[editingInvoiceIndex].status;
+    invoices[editingInvoiceIndex] = invoiceData;
+    editingInvoiceIndex = null;
+
+    message = "Invoice has been edited successfully.";
+
+} else {
+
     if (invoices.some(inv => inv.invoiceNo === invoiceNo)) {
         alert("Invoice number already exists");
         return;
     }
 
-    invoices.push({
-        invoiceNo,
-        invoiceDate,
-        items,
-        subtotal,
-        cgst,
-        sgst,
-        gst,
-        total,
-        status: "Draft"
-    });
+    invoices.push(invoiceData);
+
+    message = "Invoice created successfully.";
+}
 
     localStorage.setItem("savedInvoices", JSON.stringify(invoices));
 
-    loadInvoiceHistory();
-    clearInvoiceForm();
+loadInvoiceHistory();
+clearInvoiceForm();
+updateDashboardAnalytics();
+
+alert(message);
 }
 
 // ===============================
@@ -331,15 +360,26 @@ function loadInvoiceHistory() {
         const row = document.createElement("tr");
 
         row.innerHTML = `
-            <td>${inv.invoiceNo}</td>
-            <td>${inv.invoiceDate}</td>
-            <td>${inv.total.toFixed(2)}</td>
-            <td>${inv.status}</td>
-            <td>
-                <button onclick="regenerateInvoice(${index})">Download</button>
-                <button onclick="deleteInvoice(${index})">Delete</button>
-            </td>
-        `;
+    <td>${inv.invoiceNo}</td>
+    <td>${inv.invoiceDate}</td>
+    <td>₹ ${inv.total.toFixed(2)}</td>
+    <td>
+        <select class="status-${inv.status}"
+            onchange="updateInvoiceStatus(${index}, this.value)">
+            <option value="Draft" ${inv.status === "Draft" ? "selected" : ""}>Draft</option>
+            <option value="Pending" ${inv.status === "Pending" ? "selected" : ""}>Pending</option>
+            <option value="Sent" ${inv.status === "Sent" ? "selected" : ""}>Sent</option>
+            <option value="Paid" ${inv.status === "Paid" ? "selected" : ""}>Paid</option>
+            <option value="Cancelled" ${inv.status === "Cancelled" ? "selected" : ""}>Cancelled</option>
+            <option value="Overdue" ${inv.status === "Overdue" ? "selected" : ""}>Overdue</option>
+        </select>
+    </td>
+    <td>
+    <button onclick="editInvoice(${index})">Edit</button>
+        <button onclick="regenerateInvoice(${index})">Download</button>
+        <button onclick="deleteInvoice(${index})">Delete</button>
+    </td>
+`;
 
         tableBody.appendChild(row);
     });
@@ -356,18 +396,520 @@ function deleteInvoice(index) {
     localStorage.setItem("savedInvoices", JSON.stringify(invoices));
     loadInvoiceHistory();
 }
+function editInvoice(index) {
 
+    const invoices = JSON.parse(localStorage.getItem("savedInvoices")) || [];
+    const inv = invoices[index];
+
+    if (!inv) return;
+
+    editingInvoiceIndex = index;
+
+    // Fill basic fields
+    document.getElementById("invoiceNumber").value = inv.invoiceNo;
+    document.getElementById("invoiceDate").value = inv.invoiceDate;
+    document.getElementById("dueDate").value = inv.dueDate || "";
+
+    // Clear current rows
+    const tableBody = document.getElementById("invoiceItemsBody");
+    tableBody.innerHTML = "";
+
+    // Load items
+    inv.items.forEach(item => {
+
+        addInvoiceRow();
+
+        const rows = document.querySelectorAll("#invoiceItemsBody tr");
+        const lastRow = rows[rows.length - 1];
+
+        lastRow.querySelector(".desc").value = item.desc;
+        lastRow.querySelector(".hsn").value = item.hsn;
+        lastRow.querySelector(".qty").value = item.qty;
+        lastRow.querySelector(".rate").value = item.rate;
+    });
+
+    calculateInvoiceLive();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateInvoiceStatus(index, newStatus) {
+
+    let invoices = JSON.parse(localStorage.getItem("savedInvoices")) || [];
+
+    if (!invoices[index]) return;
+
+    invoices[index].status = newStatus;
+
+    localStorage.setItem("savedInvoices", JSON.stringify(invoices));
+    
+
+    loadInvoiceHistory();
+    updateDashboardAnalytics();
+    
+}
+function editInvoice(index) {
+
+    const invoices = JSON.parse(localStorage.getItem("savedInvoices")) || [];
+    const inv = invoices[index];
+
+    if (!inv) return;
+
+    editingInvoiceIndex = index;
+
+    document.getElementById("invoiceNumber").value = inv.invoiceNo;
+    document.getElementById("invoiceDate").value = inv.invoiceDate;
+    document.getElementById("dueDate").value = inv.dueDate || "";
+
+    const tableBody = document.getElementById("invoiceItemsBody");
+    tableBody.innerHTML = "";
+
+    inv.items.forEach(item => {
+        addInvoiceRow();
+        const lastRow = tableBody.lastElementChild;
+
+        lastRow.querySelector(".desc").value = item.desc;
+        lastRow.querySelector(".hsn").value = item.hsn;
+        lastRow.querySelector(".qty").value = item.qty;
+        lastRow.querySelector(".rate").value = item.rate;
+    });
+
+    calculateInvoiceLive();
+}
 // ===============================
-// INIT
+// CLEAR INVOICE FORM
 // ===============================
+
+function clearInvoiceForm() {
+
+    const invoiceInput = document.getElementById("invoiceNumber");
+    const dateInput = document.getElementById("invoiceDate");
+
+    // Generate new invoice number
+    if (invoiceInput) {
+        invoiceInput.value = InvoiceCore.generateInvoiceNumber();
+    }
+
+    // Reset date to today
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+
+    // Reset totals
+    const subtotalEl = document.getElementById("subtotalDisplay");
+    const taxEl = document.getElementById("taxDisplay");
+    const totalEl = document.getElementById("totalDisplay");
+    const wordsEl = document.getElementById("amountWords");
+
+    if (subtotalEl) subtotalEl.innerText = "0.00";
+    if (taxEl) taxEl.innerText = "0.00";
+    if (totalEl) totalEl.innerText = "0.00";
+    if (wordsEl) wordsEl.innerText = "";
+
+    // Clear invoice items table
+    const tableBody = document.getElementById("invoiceItemsBody");
+    if (tableBody) tableBody.innerHTML = "";
+}
+function updateDashboardAnalytics() {
+
+    const today = new Date().toISOString().slice(0,10);
+    const invoices = JSON.parse(localStorage.getItem("savedInvoices")) || [];
+
+    let totalRevenue = 0;
+    let pendingAmount = 0;
+    let draftCount = 0;
+
+    invoices.forEach(inv => {
+        
+        // 🔥 Auto Overdue Detection
+if (inv.status === "Pending" && inv.dueDate && inv.dueDate < today) {
+    inv.status = "Overdue";
+}
+
+
+        if (inv.status === "Paid") {
+            totalRevenue += inv.total;
+        }
+
+       if (inv.status === "Pending" || inv.status === "Overdue") {
+    pendingAmount += inv.total;
+}
+
+        if (inv.status === "Draft") {
+            draftCount++;
+        }
+    });
+    localStorage.setItem("savedInvoices", JSON.stringify(invoices));
+
+    document.getElementById("totalRevenue").innerText = "₹ " + totalRevenue.toFixed(2);
+    document.getElementById("pendingAmount").innerText = "₹ " + pendingAmount.toFixed(2);
+    document.getElementById("draftCount").innerText = draftCount;
+    document.getElementById("totalInvoices").innerText = invoices.length;
+    let paid = 0;
+    let pending = 0;
+    let overdue = 0;
+    let draft = 0;
+
+invoices.forEach(inv => {
+    if (inv.status === "Paid") paid += inv.total;
+    if (inv.status === "Pending") pending += inv.total;
+    if (inv.status === "Overdue") overdue += inv.total;
+    if (inv.status === "Draft") draft += inv.total;
+});
+
+  const ctx = document.getElementById("revenueChart");
+  
+    if (!ctx) return;
+
+    // 🔥 Destroy old chart before creating new one
+    if (revenueChartInstance) {
+        revenueChartInstance.destroy();
+    }
+
+    revenueChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Paid', 'Pending', 'Overdue', 'Draft'],
+            datasets: [{
+                label: 'Amount ₹',
+                data: [paid, pending, overdue, draft],
+                backgroundColor: [
+                    '#28a745',  // Paid
+                    '#ffc107',  // Pending
+                    '#dc3545',  // Overdue
+                    '#6c757d'   // Draft
+                ]
+            }]
+        }
+    });
+    const customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+
+   let withGST = 0;
+   let withoutGST = 0;
+
+   customers.forEach(c => {
+       if (c.gst && c.gst.trim() !== "") {
+           withGST++;
+       } else {
+           withoutGST++;
+       }
+   });
+
+   const totalCustEl = document.getElementById("totalCustomers");
+   const withGstEl = document.getElementById("customersWithGST");
+   const withoutGstEl = document.getElementById("customersWithoutGST");
+
+   if (totalCustEl) totalCustEl.innerText = customers.length;
+   if (withGstEl) withGstEl.innerText = withGST;
+   if (withoutGstEl) withoutGstEl.innerText = withoutGST;
+   // ===============================
+// CUSTOMER REVENUE INTELLIGENCE
+// ===============================
+
+const revenueByCustomer = {};
+
+invoices.forEach(inv => {
+    if (!inv.customerName) return;
+
+    if (!revenueByCustomer[inv.customerName]) {
+        revenueByCustomer[inv.customerName] = 0;
+    }
+
+    if (inv.status === "Paid") {
+        revenueByCustomer[inv.customerName] += inv.total;
+    }
+});
+
+let topCustomer = "-";
+let topRevenue = 0;
+
+for (let name in revenueByCustomer) {
+    if (revenueByCustomer[name] > topRevenue) {
+        topRevenue = revenueByCustomer[name];
+        topCustomer = name;
+    }
+}
+
+const topCustEl = document.getElementById("topCustomer");
+const topRevenueEl = document.getElementById("topCustomerRevenue");
+
+if (topCustEl) topCustEl.innerText = topCustomer;
+if (topRevenueEl) topRevenueEl.innerText = "₹ " + topRevenue.toFixed(2);
+
+}
+
+
+
+
+function saveCustomer() {
+
+    const name = document.getElementById("customerName").value;
+    const address = document.getElementById("customerAddress").value;
+    const stateCode = document.getElementById("customerState").value;
+    const gst = document.getElementById("customerGST").value;
+
+    if (!name) {
+        alert("Customer name required");
+        return;
+    }
+
+    let customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+    // Prevent duplicate names (case insensitive)
+if (editingCustomerIndex === null) {
+    const exists = customers.some(c => 
+        c.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+
+    if (exists) {
+        alert("Customer already exists.");
+        return;
+    }
+}
+
+    customers.push({
+        name,
+        address,
+        stateCode,
+        gst
+    });
+
+    localStorage.setItem("savedCustomers", JSON.stringify(customers));
+
+    loadCustomerDropdown();
+    loadCustomersTable();
+    clearCustomerForm();
+    updateDashboardAnalytics();
+
+    alert("Customer saved successfully.");
+}
+function loadCustomersTable() {
+
+    const tableBody = document.querySelector("#customerTable tbody");
+    if (!tableBody) return;
+
+    tableBody.innerHTML = "";
+
+    const customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+
+    customers.forEach((cust, index) => {
+
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${cust.name}</td>
+            <td>${cust.address}</td>
+            <td>${cust.stateCode}</td>
+            <td>${cust.gst || "-"}</td>
+            <td>
+            <button onclick="editCustomer(${index})">Edit</button>
+                <button onclick="deleteCustomer(${index})">Delete</button>
+            </td>
+        `;
+
+        tableBody.appendChild(row);
+    });
+}
+
+function deleteCustomer(index) {
+
+    let customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+
+    customers.splice(index, 1);
+
+    localStorage.setItem("savedCustomers", JSON.stringify(customers));
+
+    loadCustomersTable();
+    updateDashboardAnalytics();
+    loadCustomerDropdown();
+}
+
+function clearCustomerForm() {
+
+    document.getElementById("customerName").value = "";
+    document.getElementById("customerAddress").value = "";
+    document.getElementById("customerState").value = "";
+    document.getElementById("customerGST").value = "";
+}
+function loadCustomerDropdown() {
+
+    const select = document.getElementById("customerSelect");
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Select Saved Customer</option>';
+
+    const customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+
+    customers.forEach((cust, index) => {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = cust.name;
+        select.appendChild(option);
+    });
+
+    // Destroy old instance if exists
+    if (customerChoicesInstance) {
+        customerChoicesInstance.destroy();
+    }
+
+    customerChoicesInstance = new Choices(select, {
+        searchEnabled: true,
+        itemSelectText: '',
+        shouldSort: false
+    });
+}
+function editCustomer(index) {
+
+    const customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+    const cust = customers[index];
+
+    if (!cust) return;
+
+    editingCustomerIndex = index;
+
+    document.getElementById("customerName").value = cust.name;
+    document.getElementById("customerAddress").value = cust.address;
+    document.getElementById("customerState").value = cust.state || "";
+    document.getElementById("customerPincode").value = cust.pincode || "";
+    document.getElementById("customerGST").value = cust.gst || "";
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+const indianStates = [
+"Karnataka",
+"Maharashtra",
+"Tamil Nadu",
+"Kerala",
+"Telangana",
+"Andhra Pradesh",
+"Delhi",
+"Uttar Pradesh",
+"Gujarat",
+"Rajasthan",
+"West Bengal",
+"Bihar",
+"Madhya Pradesh",
+"Punjab",
+"Haryana",
+"Odisha",
+"Assam",
+"Jharkhand",
+"Chhattisgarh",
+"Himachal Pradesh",
+"Uttarakhand",
+"Goa",
+"Tripura",
+"Manipur",
+"Meghalaya",
+"Nagaland",
+"Mizoram",
+"Sikkim",
+"Arunachal Pradesh",
+"Andaman and Nicobar Islands",
+"Chandigarh",
+"Dadra and Nagar Haveli and Daman and Diu",
+"Lakshadweep",
+"Puducherry",
+"Ladakh",
+"Jammu and Kashmir"
+];
+function loadStates() {
+
+    const select = document.getElementById("customerState");
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Select State</option>';
+
+    indianStates.forEach(state => {
+        const option = document.createElement("option");
+        option.value = state;
+        option.textContent = state;
+        select.appendChild(option);
+    });
+}
+function attachCustomerSelectListener() {
+
+    const select = document.getElementById("customerSelect");
+    if (!select) return;
+
+    select.addEventListener("change", function () {
+
+        const index = this.value;
+
+        if (index === "") return;
+
+        const customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+        const cust = customers[index];
+
+        if (!cust) return;
+
+        document.getElementById("billName").value = cust.name || "";
+        document.getElementById("billAddress").value = cust.address || "";
+        document.getElementById("billState").value = cust.state || "";
+
+        const gstField = document.getElementById("billGST");
+        if (gstField) gstField.value = cust.gst || "";
+    });
+}
+function resetInvoiceCustomerFields() {
+
+    const select = document.getElementById("customerSelect");
+    if (select) select.value = "";
+
+    document.getElementById("billName").value = "";
+    document.getElementById("billAddress").value = "";
+    document.getElementById("billState").value = "";
+
+    const gstField = document.getElementById("billGST");
+    if (gstField) gstField.value = "";
+}
+function searchCustomers() {
+
+    const searchValue = document.getElementById("customerSearch").value.toLowerCase();
+
+    const customers = JSON.parse(localStorage.getItem("savedCustomers")) || [];
+    const tableBody = document.querySelector("#customerTable tbody");
+
+    if (!tableBody) return;
+
+    tableBody.innerHTML = "";
+
+    customers
+        .filter(c => c.name.toLowerCase().includes(searchValue))
+        .forEach((cust, index) => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${cust.name}</td>
+                <td>${cust.state}</td>
+                <td>${cust.pincode}</td>
+                <td>${cust.gst || "-"}</td>
+                <td>
+                    <button onclick="editCustomer(${index})">Edit</button>
+                    <button onclick="deleteCustomer(${index})">Delete</button>
+                </td>
+            `;
+
+            tableBody.appendChild(row);
+        });
+}
 
 document.addEventListener("DOMContentLoaded", function () {
 
-    document.getElementById("invoiceNumber").value =
-        InvoiceCore.generateInvoiceNumber();
+    const invoiceInput = document.getElementById("invoiceNumber");
+    const dateInput = document.getElementById("invoiceDate");
 
-    document.getElementById("invoiceDate").value =
-        new Date().toISOString().slice(0, 10);
+    if (invoiceInput && !invoiceInput.value) {
+        invoiceInput.value = InvoiceCore.generateInvoiceNumber();
+    }
+
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
 
     loadInvoiceHistory();
+    updateDashboardAnalytics();
+    loadCustomerDropdown();
+    attachCustomerSelectListener();
+    loadCustomersTable();
+    loadStates();
 });

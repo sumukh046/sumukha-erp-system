@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -22,6 +24,7 @@
     </div>
     <button onclick="showSection('financeSection')">Finance</button>
       <button onclick="showSection('invoice')">Invoice</button>
+      <button onclick="showSection('customerSection')">Customers</button>
       <button onclick="showSection('leaveSection')">Leave Management</button>
   </aside>
 
@@ -29,26 +32,129 @@
 
     <!-- DASHBOARD -->
     <section id="dashboard" class="sub-section active">
-      <h2>Dashboard</h2>
-      <div class="dashboard-grid">
+
+    <h2>Dashboard</h2>
+
+    <!-- ================= EMPLOYEE OVERVIEW ================= -->
+    <h3>Employee Overview</h3>
+
+    <div class="dashboard-grid">
         <div class="card">
-          <h3>Total Employees</h3>
-          <p id="dashEmp">0</p>
+            <h3>Total Employees</h3>
+            <p id="dashEmp">0</p>
         </div>
+
         <div class="card">
-          <h3>Working</h3>
-          <p id="dashWorking">0</p>
+            <h3>Working</h3>
+            <p id="dashWorking">0</p>
         </div>
+
         <div class="card">
-          <h3>On Leave</h3>
-          <p id="dashLeave">0</p>
+            <h3>On Leave</h3>
+            <p id="dashLeave">0</p>
         </div>
+
         <div class="card">
-          <h3>Left Company</h3>
-          <p id="dashLeft">0</p>
+            <h3>Left Company</h3>
+            <p id="dashLeft">0</p>
         </div>
-      </div>
-    </section>
+    </div>
+
+
+    <!-- ================= INVOICE OVERVIEW ================= -->
+    <h3 style="margin-top:40px;">Invoice Overview</h3>
+
+    <div class="dashboard-grid">
+
+        <div class="card revenue-card">
+            <h3>Total Revenue</h3>
+            <p id="totalRevenue">₹ 0.00</p>
+        </div>
+
+        <div class="card pending-card">
+            <h3>Pending Amount</h3>
+            <p id="pendingAmount">₹ 0.00</p>
+        </div>
+
+        <div class="card draft-card">
+            <h3>Draft Invoices</h3>
+            <p id="draftCount">0</p>
+        </div>
+
+        <div class="card total-card">
+            <h3>Total Invoices</h3>
+            <p id="totalInvoices">0</p>
+        </div>
+
+    </div>
+    <h3 style="margin-top:40px;">Customer Overview</h3>
+    <div class="card">
+    <h3>Top Billing Customer</h3>
+    <p id="topCustomer">-</p>
+</div>
+
+<div class="card">
+    <h3>Top Customer Revenue</h3>
+    <p id="topCustomerRevenue">₹ 0.00</p>
+</div>
+
+<div class="dashboard-grid">
+
+    <div class="card">
+        <h3>Total Customers</h3>
+        <p id="totalCustomers">0</p>
+    </div>
+
+    <div class="card">
+        <h3>With GST</h3>
+        <p id="customersWithGST">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Without GST</h3>
+        <p id="customersWithoutGST">0</p>
+    </div>
+
+</div>
+
+    <!-- ================= REVENUE GRAPH ================= -->
+    <div style="margin-top:40px;">
+        <canvas id="revenueChart"></canvas>
+    </div>
+
+</section>
+
+<section id="customerSection" class="sub-section">
+
+  <h2>Customer Management</h2>
+
+  <input type="text" id="customerName" placeholder="Customer Name">
+  <textarea id="customerAddress" placeholder="Customer Address"></textarea>
+  <select id="customerState"></select>
+  <input type="text" id="customerGST" placeholder="GST Number (Optional)">
+
+  <br><br>
+  <button onclick="saveCustomer()">Save Customer</button>
+
+  <hr>
+<input type="text" id="customerSearch" placeholder="Search Customer..." oninput="searchCustomers()">
+<br><br>
+  <h3>Saved Customers</h3>
+
+  <table border="1" width="100%" id="customerTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th>State</th>
+        <th>GST</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+</section>
 
     <!-- ADD EMPLOYEE -->
     <section id="addEmployee" class="sub-section">
@@ -156,6 +262,7 @@
       <h4>Invoice Details</h4>
       <input id="invoiceNumber" placeholder="Invoice No" readonly>
       <input type="date" id="invoiceDate">
+      <input type="date" id="dueDate">
       <input id="paymentTerms" placeholder="Payment Terms">
       <input id="deliveryNote" placeholder="Delivery Note">
 <input id="referenceNo" placeholder="Reference No & Date">
@@ -168,11 +275,16 @@
     </div>
 
     <div>
-      <h4>Buyer (Bill To)</h4>
-      <input id="billName" placeholder="Name">
-      <textarea id="billAddress" placeholder="Address"></textarea>
-      <input id="billState" placeholder="State Code">
-    </div>
+  <h4>Buyer (Bill To)</h4>
+
+  <select id="customerSelect"></select>
+    <option value="">Select Saved Customer</option>
+  </select>
+
+  <input id="billName" placeholder="Name">
+  <textarea id="billAddress" placeholder="Address"></textarea>
+  <input id="billState" placeholder="State Code">
+</div>
 
   </div>
 
@@ -256,9 +368,13 @@ Amount in Words:
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="employees.js"></script>
 <script src="storage.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script src="invoice.js"></script>
 <script src="app.js"></script>
 
 
 </body>
 </html>
+

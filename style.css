@@ -1,3 +1,5 @@
+style.css
+
 body {
   font-family: Arial, sans-serif;
   margin: 0;
@@ -203,4 +205,74 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+select {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: bold;
+    border: none;
+}
+
+.status-Draft {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.status-Sent {
+    background-color: #d0e7ff;
+    color: #0056b3;
+}
+
+.status-Paid {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-Cancelled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+/* ================= INVOICE DASHBOARD CARDS ================= */
+
+.revenue-card {
+  background: linear-gradient(135deg, #28a745, #218838);
+  color: white;
+}
+
+.pending-card {
+  background: linear-gradient(135deg, #ffc107, #e0a800);
+  color: black;
+}
+
+.draft-card {
+  background: linear-gradient(135deg, #6c757d, #5a6268);
+  color: white;
+}
+
+.total-card {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+}
+
+/* Make colored cards text cleaner */
+.revenue-card h3,
+.pending-card h3,
+.draft-card h3,
+.total-card h3 {
+  color: inherit;
+}
+
+.revenue-card p,
+.pending-card p,
+.draft-card p,
+.total-card p {
+  color: inherit;
+}
+.status-Pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+.status-Overdue {
+    background-color: #f8d7da;
+    color: #721c24;
 }

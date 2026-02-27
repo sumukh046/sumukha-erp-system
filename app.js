@@ -1,13 +1,27 @@
 function showSection(id) {
-  document.querySelectorAll(".sub-section").forEach(sec => {
-    sec.classList.remove("active");
-  });
 
-  let section = document.getElementById(id);
-  if (section) section.classList.add("active");
+    document.querySelectorAll(".sub-section").forEach(sec => {
+        sec.classList.remove("active");
+    });
 
-  if (id === "allEmployees") loadEmployees();
-  if (id === "employeeStatus") loadStatusTable();
+    document.getElementById(id).classList.add("active");
+
+    // Always refresh dashboard when opened
+    if (id === "dashboard") {
+        setTimeout(() => {
+            updateDashboardAnalytics();
+        }, 50);
+    }
+
+    // Reset invoice fields (you renamed section)
+    if (id === "createInvoice") {
+        resetInvoiceCustomerFields();
+    }
+
+    // 🔥 Reload invoice history when opened
+    if (id === "invoiceHistory") {
+        loadInvoiceHistory();
+    }
 }
 
 function toggleEmployeeMenu() {
@@ -23,6 +37,11 @@ function updateDashboard() {
     db.employees.filter(e => e.status === "On Leave").length;
   document.getElementById("dashLeft").innerText =
     db.employees.filter(e => e.status === "Left Company").length;
+}
+function toggleInvoiceMenu() {
+    const menu = document.getElementById("invoiceMenu");
+    menu.style.display =
+        menu.style.display === "none" ? "block" : "none";
 }
 
 window.onload = function() {
