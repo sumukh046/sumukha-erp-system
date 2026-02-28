@@ -1,23 +1,414 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Sumukha ERP Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sumukha ERP Login</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Poppins',sans-serif;
+}
+
+body{
+    height:100vh;
+    overflow:hidden;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(-45deg,#1f4037,#99f2c8,#4facfe,#00f2fe);
+    background-size:400% 400%;
+    animation:gradientShift 18s ease infinite;
+    position:relative;
+}
+
+@keyframes gradientShift{
+    0%{background-position:0% 50%;}
+    50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+}
+
+/* ===== STOCK BACKGROUND ===== */
+
+.stock-bg{
+    position:absolute;
+    width:100%;
+    height:100%;
+    z-index:0;
+    opacity:0.18;
+    pointer-events:none;
+}
+
+.stock-line{
+    stroke:white;
+    stroke-width:2;
+    fill:none;
+    stroke-dasharray:1000;
+    stroke-dashoffset:1000;
+    animation:drawLine 8s linear infinite;
+}
+
+@keyframes drawLine{
+    0%{stroke-dashoffset:1000;}
+    100%{stroke-dashoffset:0;}
+}
+
+.candle{
+    fill:white;
+    opacity:0.25;
+    animation:fadeCandle 4s ease-in-out infinite alternate;
+}
+
+@keyframes fadeCandle{
+    from{opacity:0.15;}
+    to{opacity:0.35;}
+}
+
+/* ===== SYMBOL LAYER ===== */
+
+.symbol-container{
+    position:absolute;
+    width:100%;
+    height:100%;
+    z-index:1;
+    pointer-events:none;
+    overflow:hidden;
+}
+
+.symbol{
+    position:absolute;
+    color:white;
+    opacity:0.25;
+    font-weight:600;
+    text-shadow:0 0 10px rgba(255,255,255,0.6);
+    white-space:nowrap;
+}
+
+@keyframes moveUp{
+    from{transform:translateY(110vh) rotate(0deg);}
+    to{transform:translateY(-20vh) rotate(360deg);}
+}
+@keyframes moveDown{
+    from{transform:translateY(-20vh) rotate(0deg);}
+    to{transform:translateY(110vh) rotate(-360deg);}
+}
+@keyframes moveSide{
+    from{transform:translateX(-20vw) rotate(0deg);}
+    to{transform:translateX(120vw) rotate(360deg);}
+}
+
+/* ===== LOGIN CARD ===== */
+
+.login-container{
+    position:relative;
+    z-index:2;
+    width:420px;
+    padding:55px 45px;
+    border-radius:28px;
+    background:rgba(255,255,255,0.15);
+    backdrop-filter:blur(45px);
+    border:1px solid rgba(255,255,255,0.4);
+    box-shadow:0 40px 100px rgba(0,0,0,0.5);
+    animation:cardEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
+    transform:scale(0.85) translateY(40px);
+    opacity:0;
+}
+
+@keyframes cardEnter{
+    to{
+        transform:scale(1) translateY(0);
+        opacity:1;
+    }
+}
+
+/* ===== LOGO ===== */
+
+.logo{
+    text-align:center;
+    margin-bottom:35px;
+}
+
+.logo img{
+    width:160px;
+    height:auto;
+}
+
+.logo h2{
+    margin-top:15px;
+    font-size:26px;
+    letter-spacing:2px;
+    font-weight:600;
+    color:white;
+}
+
+/* ===== FLOATING LABEL INPUTS ===== */
+
+.input-group{
+    position:relative;
+    margin-bottom:28px;
+}
+
+.input-group input{
+    width:100%;
+    padding:18px 20px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,0.3);
+    background:rgba(255,255,255,0.08);
+    color:white;
+    font-size:15px;
+    outline:none;
+    transition:all 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
+.input-group label{
+    position:absolute;
+    left:20px;
+    top:50%;
+    transform:translateY(-50%);
+    color:rgba(255,255,255,0.7);
+    font-size:14px;
+    pointer-events:none;
+    transition:all 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* Focus Animation */
+
+.input-group input:focus{
+    border-color:#ffffff;
+    background:rgba(255,255,255,0.15);
+    box-shadow:
+        0 0 0 4px rgba(255,255,255,0.15),
+        0 10px 30px rgba(0,0,0,0.3);
+    transform:translateY(-2px);
+}
+
+/* Floating label */
+
+.input-group input:focus + label,
+.input-group input:valid + label{
+    top:-8px;
+    left:14px;
+    font-size:12px;
+    background:rgba(0,0,0,0.4);
+    padding:2px 8px;
+    border-radius:8px;
+    color:white;
+}
+
+/* Eye Icon */
+
+.toggle-password{
+    position:absolute;
+    right:18px;
+    top:50%;
+    transform:translateY(-50%);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+}
+
+/* ===== FORGOT ===== */
+
+/* ===== FORGOT PASSWORD ANIMATION ===== */
+
+.forgot{
+    text-align:right;
+    margin-top:-10px;
+    margin-bottom:20px;
+}
+
+.forgot a{
+    position:relative;
+    font-size:13px;
+    color:white;
+    text-decoration:none;
+    transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
+    padding-right:18px;
+}
+
+/* Animated underline */
+.forgot a::after{
+    content:"";
+    position:absolute;
+    left:0;
+    bottom:-3px;
+    width:0%;
+    height:2px;
+    background:white;
+    transition:width 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* Small arrow */
+.forgot a::before{
+    content:"→";
+    position:absolute;
+    right:0;
+    top:50%;
+    transform:translateY(-50%) translateX(-4px);
+    opacity:0;
+    transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* Hover animation */
+.forgot a:hover{
+    opacity:0.9;
+}
+
+.forgot a:hover::after{
+    width:100%;
+}
+
+.forgot a:hover::before{
+    opacity:1;
+    transform:translateY(-50%) translateX(0);
+}
+/* ===== BUTTON ===== */
+
+.login-container button{
+    width:100%;
+    padding:15px;
+    border-radius:16px;
+    border:none;
+    background:linear-gradient(90deg,#4facfe,#00f2fe);
+    color:white;
+    font-weight:600;
+    font-size:15px;
+    cursor:pointer;
+    transition:0.3s ease;
+}
+
+.login-container button:hover{
+    transform:translateY(-4px);
+    box-shadow:0 20px 40px rgba(0,0,0,0.5);
+}
+
+.footer{
+    text-align:center;
+    margin-top:18px;
+    font-size:12px;
+    color:white;
+}
+
+</style>
 </head>
-<body class="login-body">
 
-<div class="login-box">
-  <img src="logo.png" class="login-logo">
-  <h2>Admin Login</h2>
+<body>
 
-  <input id="loginUser" placeholder="Username">
-  <input id="loginPass" type="password" placeholder="Password">
-  <button onclick="login()">Login</button>
+<!-- STOCK BACKGROUND -->
+<svg class="stock-bg" viewBox="0 0 1200 600" preserveAspectRatio="none">
+<polyline class="stock-line"
+points="0,420 120,380 240,400 360,300 480,340 600,280 720,320 840,240 960,260 1080,190 1200,160"/>
+<rect class="candle" x="150" y="350" width="6" height="70"/>
+<rect class="candle" x="350" y="280" width="6" height="90"/>
+<rect class="candle" x="550" y="300" width="6" height="80"/>
+<rect class="candle" x="750" y="220" width="6" height="100"/>
+<rect class="candle" x="950" y="170" width="6" height="120"/>
+</svg>
 
-  <p id="loginError" class="error"></p>
+<div class="symbol-container" id="symbols"></div>
+
+<div class="login-container">
+    <div class="logo">
+        <img src="logo.png" alt="Logo">
+        <h2>Welcome</h2>
+    </div>
+
+    <div class="input-group">
+        <input type="text" required>
+        <label>Username</label>
+    </div>
+
+    <div class="input-group">
+        <input type="password" id="password" required>
+        <label>Password</label>
+
+        <span class="toggle-password" onclick="togglePassword()">
+            <svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+
+            <svg id="eyeClosed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="display:none;">
+                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.77 21.77 0 015.06-6.94"/>
+                <path d="M1 1l22 22"/>
+            </svg>
+        </span>
+    </div>
+
+    <div class="forgot">
+        <a href="#">Forgot Password?</a>
+    </div>
+
+    <button>Access Dashboard</button>
+
+    <div class="footer">
+        Version 2.0 • Enterprise Secure Access
+    </div>
 </div>
 
-<script src="app.js"></script>
+<script>
+
+/* Password Toggle */
+function togglePassword(){
+    const pass = document.getElementById("password");
+    const eyeOpen = document.getElementById("eyeOpen");
+    const eyeClosed = document.getElementById("eyeClosed");
+
+    if(pass.type === "password"){
+        pass.type = "text";
+        eyeOpen.style.display = "none";
+        eyeClosed.style.display = "block";
+    }else{
+        pass.type = "password";
+        eyeOpen.style.display = "block";
+        eyeClosed.style.display = "none";
+    }
+}
+
+/* Symbol Generator */
+
+const container = document.getElementById("symbols");
+
+const mathItems = [
+"0","1","2","3","4","5","6","7","8","9",
+"∑","π","∞","√","Δ","÷","×","±","≈","≥","≤",
+"∫","∂","∇","θ","λ","µ","Ω","∝","∴","∵"
+];
+
+const maxSymbols = 25;
+let currentSymbols = 0;
+
+function createSymbol(){
+    if(currentSymbols >= maxSymbols) return;
+
+    const span = document.createElement("span");
+    span.classList.add("symbol");
+
+    span.innerText = mathItems[Math.floor(Math.random()*mathItems.length)];
+    span.style.left = Math.random()*100 + "vw";
+    span.style.fontSize = (25 + Math.random()*40) + "px";
+
+    const duration = 18 + Math.random()*12;
+    const animationType = ["moveUp","moveDown","moveSide"][Math.floor(Math.random()*3)];
+    span.style.animation = animationType + " " + duration + "s linear";
+
+    container.appendChild(span);
+    currentSymbols++;
+
+    setTimeout(()=>{
+        span.remove();
+        currentSymbols--;
+    }, duration*1000);
+}
+
+setInterval(createSymbol, 900);
+
+</script>
+
 </body>
 </html>

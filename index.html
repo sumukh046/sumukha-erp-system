@@ -1,10 +1,16 @@
-
-
 <!DOCTYPE html>
 <html>
 <head>
   <title>Sumukha ERP System</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Quick alignment fix for the 3 columns in the invoice */
+    .invoice-top-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+    }
+  </style>
 </head>
 <body>
 
@@ -20,206 +26,170 @@
       <button onclick="showSection('addEmployee')">➤ Add Employee</button>
       <button onclick="showSection('allEmployees')">➤ All Employees</button>
       <button onclick="showSection('employeeStatus')">➤ Employee Status</button>
-      
     </div>
+
     <button onclick="showSection('financeSection')">Finance</button>
-      <button onclick="showSection('invoice')">Invoice</button>
-      <button onclick="showSection('customerSection')">Customers</button>
-      <button onclick="showSection('leaveSection')">Leave Management</button>
+
+    <button onclick="toggleInvoiceMenu()">Invoice ▼</button>
+    <div id="invoiceMenu" style="display:none; margin-left:10px;">
+      <button onclick="openCreateInvoice('gst')">➤ Create GST Invoice</button>
+      <button onclick="openCreateInvoice('nongst')">➤ Create Non-GST Invoice</button>
+      <button onclick="showSection('allInvoices')">➤ All Invoices</button>
+      <button onclick="showSection('customerSection')">➤ Customers</button>
+    </div>
+
+    <button onclick="showSection('leaveSection')">Leave Management</button>
   </aside>
 
   <main class="content">
 
-    <!-- DASHBOARD -->
     <section id="dashboard" class="sub-section active">
+      <h2>Dashboard</h2>
 
-    <h2>Dashboard</h2>
-
-    <!-- ================= EMPLOYEE OVERVIEW ================= -->
-    <h3>Employee Overview</h3>
-
-    <div class="dashboard-grid">
-        <div class="card">
-            <h3>Total Employees</h3>
-            <p id="dashEmp">0</p>
-        </div>
-
-        <div class="card">
-            <h3>Working</h3>
-            <p id="dashWorking">0</p>
-        </div>
-
-        <div class="card">
-            <h3>On Leave</h3>
-            <p id="dashLeave">0</p>
-        </div>
-
-        <div class="card">
-            <h3>Left Company</h3>
-            <p id="dashLeft">0</p>
-        </div>
-    </div>
-
-
-    <!-- ================= INVOICE OVERVIEW ================= -->
-    <h3 style="margin-top:40px;">Invoice Overview</h3>
-
-    <div class="dashboard-grid">
-
-        <div class="card revenue-card">
-            <h3>Total Revenue</h3>
-            <p id="totalRevenue">₹ 0.00</p>
-        </div>
-
-        <div class="card pending-card">
-            <h3>Pending Amount</h3>
-            <p id="pendingAmount">₹ 0.00</p>
-        </div>
-
-        <div class="card draft-card">
-            <h3>Draft Invoices</h3>
-            <p id="draftCount">0</p>
-        </div>
-
-        <div class="card total-card">
-            <h3>Total Invoices</h3>
-            <p id="totalInvoices">0</p>
-        </div>
-
-    </div>
-    <h3 style="margin-top:40px;">Customer Overview</h3>
-    <div class="card">
-    <h3>Top Billing Customer</h3>
-    <p id="topCustomer">-</p>
-</div>
-
-<div class="card">
-    <h3>Top Customer Revenue</h3>
-    <p id="topCustomerRevenue">₹ 0.00</p>
-</div>
-
-<div class="dashboard-grid">
-
-    <div class="card">
-        <h3>Total Customers</h3>
-        <p id="totalCustomers">0</p>
-    </div>
-
-    <div class="card">
-        <h3>With GST</h3>
-        <p id="customersWithGST">0</p>
-    </div>
-
-    <div class="card">
-        <h3>Without GST</h3>
-        <p id="customersWithoutGST">0</p>
-    </div>
-
-</div>
-
-    <!-- ================= REVENUE GRAPH ================= -->
-    <div style="margin-top:40px;">
-        <canvas id="revenueChart"></canvas>
-    </div>
-
-</section>
-
-<section id="customerSection" class="sub-section">
-
-  <h2>Customer Management</h2>
-
-  <input type="text" id="customerName" placeholder="Customer Name">
-  <textarea id="customerAddress" placeholder="Customer Address"></textarea>
-  <select id="customerState"></select>
-  <input type="text" id="customerGST" placeholder="GST Number (Optional)">
-
-  <br><br>
-  <button onclick="saveCustomer()">Save Customer</button>
-
-  <hr>
-<input type="text" id="customerSearch" placeholder="Search Customer..." oninput="searchCustomers()">
-<br><br>
-  <h3>Saved Customers</h3>
-
-  <table border="1" width="100%" id="customerTable">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Address</th>
-        <th>State</th>
-        <th>GST</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-</section>
-
-    <!-- ADD EMPLOYEE -->
-    <section id="addEmployee" class="sub-section">
-  <h2>Add Employee</h2>
-
-  <div class="form-grid">
-
-    <input id="firstName" placeholder="First Name">
-    <input type="text" id="middleName" placeholder="Middle Name (Optional)">
-    <input id="lastName" placeholder="Last Name">
-    <input id="age" placeholder="Age" oninput="allowOnlyNumbers(this)">
-    
-
-<select id="gender">
-    <option value="">Select Gender</option>
-    <option value="Male">Male</option>
-    <option value="Female">Female</option>
-    <option value="Other">Other</option>
-</select>
-
-    <input id="mobile" placeholder="Mobile Number" oninput="allowOnlyNumbers(this)">
-    <input id="guardianPhone" placeholder="Guardian Phone" oninput="allowOnlyNumbers(this)">
-    <input type="text" id="guardianName" placeholder="Guardian Name">
-    <input id="nativePlace" placeholder="Native Place">
-    <input id="languages" placeholder="Languages">
-
-    <select id="role">
-    <option value="">Select Role</option>
-    <option value="Nurse">Nurse</option>
-    <option value="Caretaker">Caretaker</option>
-    <option value="Babysitter">Babysitter</option>
-    <option value="House Maid">House Maid</option>
-    <option value="Cook">Cook</option>
-</select>
-
-    <textarea id="address" placeholder="House Address"></textarea>
-
-    <!-- Aadhaar Section -->
-    <div class="aadhar-section">
-      <input id="aadhar" placeholder="Aadhar Number" oninput="allowOnlyNumbers(this)">
-      
-      <div class="toggle-wrapper">
-        <label class="toggle-switch">
-          <input type="checkbox" id="aadharToggle" onchange="toggleAadharUpload()">
-          <span class="slider"></span>
-        </label>
-        <span>Upload Card</span>
+      <h3>Employee Overview</h3>
+      <div class="dashboard-grid">
+          <div class="card">
+              <h3>Total Employees</h3>
+              <p id="dashEmp">0</p>
+          </div>
+          <div class="card">
+              <h3>Working</h3>
+              <p id="dashWorking">0</p>
+          </div>
+          <div class="card">
+              <h3>On Leave</h3>
+              <p id="dashLeave">0</p>
+          </div>
+          <div class="card">
+              <h3>Left Company</h3>
+              <p id="dashLeft">0</p>
+          </div>
       </div>
-    </div>
 
-    <input type="file" id="aadharFile" accept="image/*" style="display:none;">
+      <h3 style="margin-top:40px;">Invoice Overview</h3>
+      <div class="dashboard-grid">
+          <div class="card revenue-card">
+              <h3>Total Revenue</h3>
+              <p id="totalRevenue">₹ 0.00</p>
+          </div>
+          <div class="card pending-card">
+              <h3>Pending Amount</h3>
+              <p id="pendingAmount">₹ 0.00</p>
+          </div>
+          <div class="card draft-card">
+              <h3>Draft Invoices</h3>
+              <p id="draftCount">0</p>
+          </div>
+          <div class="card total-card">
+              <h3>Total Invoices</h3>
+              <p id="totalInvoices">0</p>
+          </div>
+      </div>
 
-    <select id="aadharVerified">
-      <option value="No">Not Verified</option>
-      <option value="Yes">Verified</option>
-    </select>
+      <h3 style="margin-top:40px;">Customer Overview</h3>
+      <div class="dashboard-grid">
+          <div class="card">
+              <h3>Top Billing Customer</h3>
+              <p id="topCustomer">-</p>
+          </div>
+          <div class="card">
+              <h3>Top Customer Revenue</h3>
+              <p id="topCustomerRevenue">₹ 0.00</p>
+          </div>
+      </div>
+      <div class="dashboard-grid">
+          <div class="card">
+              <h3>Total Customers</h3>
+              <p id="totalCustomers">0</p>
+          </div>
+          <div class="card">
+              <h3>With GST</h3>
+              <p id="customersWithGST">0</p>
+          </div>
+          <div class="card">
+              <h3>Without GST</h3>
+              <p id="customersWithoutGST">0</p>
+          </div>
+      </div>
 
-  </div>
+      <div style="margin-top:40px;">
+          <canvas id="revenueChart"></canvas>
+      </div>
+    </section>
 
-  <br>
-  <button onclick="addEmployee()">Add Employee</button>
+    <section id="customerSection" class="sub-section">
+      <h2>Customer Management</h2>
+      <input type="text" id="customerName" placeholder="Customer Name">
+      <textarea id="customerAddress" placeholder="Customer Address"></textarea>
+      <select id="customerState"></select>
+      <input type="text" id="customerGST" placeholder="GST Number (Optional)">
+      <br><br>
+      <button onclick="saveCustomer()">Save Customer</button>
+      <hr>
+      <input type="text" id="customerSearch" placeholder="Search Customer..." oninput="searchCustomers()">
+      <br><br>
+      <h3>Saved Customers</h3>
+      <table border="1" width="100%" id="customerTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Address</th>
+            <th>State</th>
+            <th>GST</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
 
-</section>
+    <section id="addEmployee" class="sub-section">
+      <h2>Add Employee</h2>
+      <div class="form-grid">
+        <input id="firstName" placeholder="First Name">
+        <input type="text" id="middleName" placeholder="Middle Name (Optional)">
+        <input id="lastName" placeholder="Last Name">
+        <input id="age" placeholder="Age" oninput="allowOnlyNumbers(this)">
+        <select id="gender">
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+        <input id="mobile" placeholder="Mobile Number" oninput="allowOnlyNumbers(this)">
+        <input id="guardianPhone" placeholder="Guardian Phone" oninput="allowOnlyNumbers(this)">
+        <input type="text" id="guardianName" placeholder="Guardian Name">
+        <input id="nativePlace" placeholder="Native Place">
+        <input id="languages" placeholder="Languages">
+        <select id="role">
+            <option value="">Select Role</option>
+            <option value="Nurse">Nurse</option>
+            <option value="Caretaker">Caretaker</option>
+            <option value="Babysitter">Babysitter</option>
+            <option value="House Maid">House Maid</option>
+            <option value="Cook">Cook</option>
+        </select>
+        <textarea id="address" placeholder="House Address"></textarea>
+        <div class="aadhar-section">
+          <input id="aadhar" placeholder="Aadhar Number" oninput="allowOnlyNumbers(this)">
+          <div class="toggle-wrapper">
+            <label class="toggle-switch">
+              <input type="checkbox" id="aadharToggle" onchange="toggleAadharUpload()">
+              <span class="slider"></span>
+            </label>
+            <span>Upload Card</span>
+          </div>
+        </div>
+        <input type="file" id="aadharFile" accept="image/*" style="display:none;">
+        <select id="aadharVerified">
+          <option value="No">Not Verified</option>
+          <option value="Yes">Verified</option>
+        </select>
+      </div>
+      <br>
+      <button onclick="addEmployee()">Add Employee</button>
+    </section>
 
-    <!-- ALL EMPLOYEES -->
     <section id="allEmployees" class="sub-section">
       <h2>All Employees</h2>
       <button onclick="downloadCSV()">Download CSV</button>
@@ -227,144 +197,135 @@
       <table id="empTable"></table>
     </section>
 
-    <!-- STATUS -->
     <section id="employeeStatus" class="sub-section">
       <h2>Employee Status</h2>
       <table id="statusTable"></table>
     </section>
 
-    <section id="invoice" class="sub-section">
+    <section id="financeSection" class="sub-section">
+      <h2>Finance Module (Coming Soon)</h2>
+    </section>
 
-  <h2>Tax Invoice</h2>
+    <section id="leaveSection" class="sub-section">
+      <h2>Leave Management (Coming Soon)</h2>
+    </section>
 
-  <!-- COMPANY HEADER -->
-  <div class="invoice-company">
-    <h3>SUMUKHA FACILITATORS PRIVATE LIMITED</h3>
-    <p>No 477, 45th CRS, Jayanagar 8th Block, Bangalore</p>
-    <p>GSTIN/UIN: 29AAUCS4592E1ZN | State: Karnataka (29)</p>
-    <p>CIN: U74900KA2014PTC073975</p>
-    <p>Email: homenursingservicesbangalore@gmail.com</p>
-  </div>
+    <section id="createInvoice" class="sub-section">
+      <h2>Create Invoice</h2>
+      
+      <div class="invoice-company">
+        <h3>SUMUKHA FACILITATORS PRIVATE LIMITED</h3>
+        <p>No 477, 45th CRS, Jayanagar 8th Block, Bangalore</p>
+        <p>GSTIN/UIN: 29AAUCS4592E1ZN | State: Karnataka (29)</p>
+        <p>CIN: U74900KA2014PTC073975</p>
+        <p>Email: homenursingservicesbangalore@gmail.com</p>
+      </div>
+      
+      <hr>
 
-  <hr>
+      <div class="invoice-top-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+        
+        <div>
+          <h4>Buyer (Bill To)</h4>
+          <select id="customerSelect" style="margin-bottom: 10px; width: 100%;">
+            <option value="">-- Custom / Walk-in Customer --</option>
+          </select>
+          <input id="billName" placeholder="Customer Name" style="width: 100%; margin-bottom: 10px;">
+          <textarea id="billAddress" placeholder="Customer Address" style="width: 100%; margin-bottom: 10px; height: 60px;"></textarea>
+          <input id="billState" placeholder="State (e.g., Karnataka, New Delhi)" style="width: 100%;">
+        </div>
 
-  <!-- PARTY DETAILS -->
-  <div class="invoice-top-grid">
+        <div>
+          <h4>Invoice Details</h4>
+          <input id="invoiceNumber" placeholder="Invoice No" readonly style="width: 100%; margin-bottom: 10px; background-color: #f4f4f4;">
+          
+          <label style="font-size: 12px; color: #555;">Invoice Date</label>
+          <input type="date" id="invoiceDate" style="width: 100%; margin-bottom: 10px;">
+          
+          <label style="font-size: 12px; color: #555;">Due Date (Optional)</label>
+          <input type="date" id="dueDate" style="width: 100%;">
+        </div>
 
-    <div>
-      <h4>Consignee (Ship To)</h4>
-      <input id="shipName" placeholder="Name">
-      <textarea id="shipAddress" placeholder="Address"></textarea>
-      <input id="shipState" placeholder="State Code">
-    </div>
+      </div>
+      
+      <hr>
 
-    <div>
-      <h4>Invoice Details</h4>
-      <input id="invoiceNumber" placeholder="Invoice No" readonly>
-      <input type="date" id="invoiceDate">
-      <input type="date" id="dueDate">
-      <input id="paymentTerms" placeholder="Payment Terms">
-      <input id="deliveryNote" placeholder="Delivery Note">
-<input id="referenceNo" placeholder="Reference No & Date">
-<input id="buyerOrderNo" placeholder="Buyer’s Order No">
-<input id="dispatchDocNo" placeholder="Dispatch Doc No">
-<input id="dispatchedThrough" placeholder="Dispatched Through">
-<input id="destination" placeholder="Destination">
-<input id="deliveryNoteDate" placeholder="Delivery Note Date">
-<input id="otherReferences" placeholder="Other References">
-    </div>
+      <table id="invoiceItemsTable" border="1" width="100%">
+        <thead>
+          <tr>
+            <th>Sl</th>
+            <th>Description of Services/Items</th>
+            <th>HSN/SAC</th>
+            <th>Qty</th>
+            <th>Rate</th>
+            <th>Amount</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="invoiceItemsBody"></tbody>
+      </table>
+      <br>
+      <button onclick="addInvoiceRow()">Add Item</button>
+      
+      <hr>
 
-    <div>
-  <h4>Buyer (Bill To)</h4>
+      <h4>Tax Type</h4>
+      <label><input type="radio" name="taxType" value="none" checked> No Tax</label>
+      <label><input type="radio" name="taxType" value="gst"> GST 18%</label>
+      <label><input type="radio" name="taxType" value="cgst_sgst"> CGST 9% + SGST 9%</label>
+      
+      <hr>
 
-  <select id="customerSelect"></select>
-    <option value="">Select Saved Customer</option>
-  </select>
+      <div class="invoice-totals">
+        Subtotal: ₹ <span id="subtotalDisplay">0.00</span><br>
+        Tax: ₹ <span id="taxDisplay">0.00</span><br>
+        Total: ₹ <span id="totalDisplay">0.00</span><br><br>
+        Amount in Words:
+        <div id="amountWords"></div>
+      </div>
+      
+      <hr>
+      <button onclick="saveInvoiceRecord()">Save Invoice</button>
+      <br><br>
+      
+      <div style="text-align:right;">
+        <p>Authorised Signatory</p>
+      </div>
+    </section>
 
-  <input id="billName" placeholder="Name">
-  <textarea id="billAddress" placeholder="Address"></textarea>
-  <input id="billState" placeholder="State Code">
-</div>
-
-  </div>
-
-  <hr>
-
-  <!-- ITEM TABLE -->
-  <table id="invoiceItemsTable" border="1" width="100%">
-    <thead>
-      <tr>
-        <th>Sl</th>
-        <th>Description of Services</th>
-        <th>HSN/SAC</th>
-        <th>Qty</th>
-        <th>Rate</th>
-        <th>Amount</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="invoiceItemsBody"></tbody>
-  </table>
-
-  <br>
-  <button onclick="addInvoiceRow()">Add Item</button>
-
-  <hr>
-
-  <!-- TAX OPTIONS -->
-  <h4>Tax Type</h4>
-
-  <label><input type="radio" name="taxType" value="none" checked> No Tax</label>
-  <label><input type="radio" name="taxType" value="gst"> GST 18%</label>
-  <label><input type="radio" name="taxType" value="cgst_sgst"> CGST 9% + SGST 9%</label>
-
-  <hr>
-
-  <!-- TOTAL SECTION -->
-  <div class="invoice-totals">
-    Subtotal: ₹ <span id="subtotalDisplay">0.00</span><br>
-Tax: ₹ <span id="taxDisplay">0.00</span><br>
-Total: ₹ <span id="totalDisplay">0.00</span><br><br>
-
-Amount in Words:
-<div id="amountWords">
-  </div>
-
-
-  <hr>
-
-  <button onclick="saveInvoiceRecord()">Save Invoice</button>
-
-  <br><br>
-
-  <div style="text-align:right;">
-    <p>for SUMUKHA FACILITATORS PRIVATE LIMITED</p>
-    <br><br>
-    <p>Authorised Signatory</p>
-  </div>
-
-
-<hr>
-<h3>Downloaded Invoices</h3>
-
-<table border="1" width="100%" id="invoiceHistoryTable">
-  <thead>
-    <tr>
-      <th>Invoice No</th>
-      <th>Date</th>
-      <th>Total (₹)</th>
-      <th>Status</th>
-      <th>Download</th>
-    </tr>
-  </thead>
-  <tbody>
-  </tbody>
-</table>
-
-</section>
+    <section id="allInvoices" class="sub-section">
+      <h2>All Invoices</h2>
+      <div style="display: flex; gap: 15px; margin-bottom: 15px; max-width: 900px;">
+          <input type="text" id="invoiceSearchInput" placeholder="Search by Invoice No or Customer Name..." oninput="filterInvoices()" style="flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+          <select id="invoiceStatusFilter" onchange="filterInvoices()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+              <option value="All">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="Pending">Pending</option>
+              <option value="Sent">Sent</option>
+              <option value="Paid">Paid</option>
+              <option value="Cancelled">Cancelled</option>
+              <option value="Overdue">Overdue</option>
+          </select>
+      </div>
+      <table border="1" width="100%" id="invoiceHistoryTable">
+        <thead>
+          <tr>
+            <th>Invoice No</th>
+            <th>Customer</th>
+            <th>Date</th>
+            <th>Total (₹)</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+        </tbody>
+      </table>
+    </section>
 
   </main>
 </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="employees.js"></script>
 <script src="storage.js"></script>
@@ -374,7 +335,5 @@ Amount in Words:
 <script src="invoice.js"></script>
 <script src="app.js"></script>
 
-
 </body>
 </html>
-
