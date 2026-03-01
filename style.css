@@ -276,3 +276,11 @@ select {
     background-color: #f8d7da;
     color: #721c24;
 }
+.locked-badge {
+    background: #dc3545;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
