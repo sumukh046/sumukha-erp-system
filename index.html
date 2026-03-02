@@ -205,8 +205,68 @@
     </section>
 
     <section id="financeSection" class="sub-section">
-      <h2>Finance Module (Coming Soon)</h2>
-    </section>
+
+    <h2>Finance Dashboard</h2>
+    <h3>Set Opening Balance</h3>
+
+    <input type="number" id="openingBank" placeholder="Opening Bank Balance">
+    <input type="number" id="openingCash" placeholder="Opening Cash Balance">
+    <button onclick="setOpeningBalance()">Set Balance</button>
+
+    <hr>
+
+    <div class="finance-balance-box">
+        <div>
+            <h3>Bank Balance</h3>
+            <p id="bankBalance">₹0</p>
+        </div>
+        <div>
+            <h3>Cash Balance</h3>
+            <p id="cashBalance">₹0</p>
+        </div>
+    </div>
+
+    <hr>
+
+    
+
+<h3>Add Transaction</h3>
+
+<input type="date" id="txnDate">
+<select id="paidTo">
+    <option value="">Select Person</option>
+</select>
+<select id="category">
+    <option value="salary">Salary</option>
+    <option value="vendor">Vendor Payment</option>
+    <option value="expense">Other Expense</option>
+</select>
+<select id="paymentMode">
+    <option value="upi">UPI</option>
+    <option value="cash">Cash</option>
+    <option value="netbanking">Netbanking</option>
+</select>
+<input type="number" id="amount" placeholder="Amount">
+<input type="text" id="notes" placeholder="Notes">
+<button onclick="addFinanceTransaction()">Add Transaction</button>
+
+<hr>
+
+<h3>Transactions</h3>
+<table border="1" width="100%">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Paid To</th>
+            <th>Category</th>
+            <th>Mode</th>
+            <th>Amount</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="financeTableBody"></tbody>
+</table>
+</section>
 
     <section id="leaveSection" class="sub-section">
       <h2>Leave Management (Coming Soon)</h2>
@@ -344,6 +404,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script src="invoice.js"></script>
+<script src="finance.js"></script>
 <script src="app.js"></script>
 
 </body>

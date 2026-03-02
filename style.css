@@ -284,3 +284,10 @@ select {
     font-size: 12px;
     font-weight: 600;
 }
+.sub-section {
+    display: none;
+}
+
+.sub-section.active {
+    display: block;
+}

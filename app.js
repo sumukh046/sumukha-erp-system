@@ -4,33 +4,19 @@
 
 function showSection(id) {
 
-    // Hide all sections
     document.querySelectorAll(".sub-section").forEach(sec => {
         sec.classList.remove("active");
     });
 
-    const targetSection = document.getElementById(id);
-
-    if (!targetSection) {
-        console.warn("Section not found:", id);
-        return;
+    const section = document.getElementById(id);
+    if (section) {
+        section.classList.add("active");
     }
 
-    targetSection.classList.add("active");
-
-    // Refresh dashboard
-    if (id === "dashboard") {
-        setTimeout(() => {
-            if (typeof updateDashboardAnalytics === "function") {
-                updateDashboardAnalytics();
-            }
-        }, 50);
-    }
-
-    // Refresh invoice history safely
-    if (id === "allInvoices") {
-        if (typeof loadInvoiceHistory === "function") {
-            loadInvoiceHistory();
+    // 🔥 Refresh Finance dropdown when opening Finance tab
+    if (id === "financeSection") {
+        if (typeof loadFinancePeopleDropdown === "function") {
+            loadFinancePeopleDropdown();
         }
     }
 }
@@ -82,7 +68,64 @@ function toggleInvoiceMenu() {
         invMenu.style.display = "none";
     }
 }
+function refreshFinanceUI() {
+    loadFinancePeopleDropdown();
+    const transactions = FinanceCore.getTransactions();
+    const balance = FinanceCore.getBalance();
 
+    document.getElementById("bankBalance").innerText = "₹" + balance.bankBalance;
+    document.getElementById("cashBalance").innerText = "₹" + balance.cashBalance;
+
+    const tbody = document.getElementById("financeTableBody");
+    tbody.innerHTML = "";
+
+    transactions.forEach(txn => {
+        const row = `
+            <tr>
+                <td>${txn.date}</td>
+                <td>${txn.paidTo}</td>
+                <td>${txn.category}</td>
+                <td>${txn.paymentMode}</td>
+                <td>₹${txn.amount}</td>
+                <td>
+                    <button onclick="deleteFinanceTxn('${txn.id}')">Delete</button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+function addFinanceTransaction() {
+
+    const data = {
+        date: document.getElementById("txnDate").value,
+        paidTo: document.getElementById("paidTo").value,
+        category: document.getElementById("category").value,
+        paymentMode: document.getElementById("paymentMode").value,
+        amount: document.getElementById("amount").value,
+        notes: document.getElementById("notes").value
+    };
+
+    FinanceCore.addTransaction(data);
+    refreshFinanceUI();
+}
+function setOpeningBalance() {
+    const bank = document.getElementById("openingBank").value;
+    const cash = document.getElementById("openingCash").value;
+
+    if (!bank && !cash) {
+        alert("Enter opening balances");
+        return;
+    }
+
+    FinanceCore.setOpeningBalance(bank || 0, cash || 0);
+    refreshFinanceUI();
+}
+
+
+
+
+   
 // ===============================
 // INIT
 // ===============================
@@ -92,3 +135,4 @@ window.addEventListener("load", function () {
     if (typeof loadStatusTable === "function") loadStatusTable();
     updateDashboard();
 });
+
