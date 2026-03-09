@@ -10,6 +10,12 @@
         grid-template-columns: 1fr 1fr;
         gap: 30px;
     }
+    
+    /* Toggle Switch Styles */
+    .switch {
+      position: relative;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -27,6 +33,8 @@
       <button onclick="showSection('allEmployees')">➤ All Employees</button>
       <button onclick="showSection('employeeStatus')">➤ Employee Status</button>
     </div>
+    <button onclick="showSection('salarySection')">Salary</button>
+    
 
     <button onclick="showSection('financeSection')">Finance</button>
 
@@ -39,12 +47,20 @@
     </div>
 
     <button onclick="showSection('leaveSection')">Leave Management</button>
+    <button onclick="showSection('settingsSection')">Settings</button>
   </aside>
 
   <main class="content">
 
     <section id="dashboard" class="sub-section active">
       <h2>Dashboard</h2>
+      <div class="dashboard-controls">
+    <label class="dark-switch">
+        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+        <span class="slider"></span>
+        <span class="switch-label">Dark Mode</span>
+    </label>
+</div>
 
       <h3>Employee Overview</h3>
       <div class="dashboard-grid">
@@ -115,6 +131,7 @@
       <div style="margin-top:40px;">
           <canvas id="revenueChart"></canvas>
       </div>
+      
     </section>
 
     <section id="customerSection" class="sub-section">
@@ -144,6 +161,165 @@
         <tbody></tbody>
       </table>
     </section>
+
+    <section id="salarySection" class="sub-section">
+
+    <h2>Salary Management</h2>
+
+    <div style="max-width:600px; display:flex; gap:15px; flex-wrap:wrap;">
+        <select id="salaryEmployeeSelect" style="flex:1;">
+            <option value="">Select Employee</option>
+        </select>
+
+        <select id="salaryMonthSelect" style="flex:1;">
+        </select>
+    </div>
+
+    <div id="salarySummaryCard" class="card" style="display:none; margin-top:20px; position:relative;">
+        <h3>Monthly Summary</h3>
+        
+        <div class="summary-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div class="stat-box">
+                <p>Total Salary</p>
+                <h2 id="salaryTotal">₹0.00</h2>
+            </div>
+            <div class="stat-box">
+                <p>Paid So Far</p>
+                <h2 id="salaryPaid">₹0.00</h2>
+            </div>
+            <div class="stat-box">
+                <p>Remaining</p>
+                <h2 id="salaryRemaining">₹0.00</h2>
+            </div>
+            <div class="stat-box">
+                <p>Status</p>
+                <h2 id="salaryStatus">Pending</h2>
+            </div>
+        </div>
+
+        <div id="salaryEmpStatusDisplayWrapper" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+            <strong>Employee Status:</strong> <span id="salaryEmpStatusDisplay">-</span>
+        </div>
+
+        <div id="payInFullWrapper" style="background: #e8f5e9; padding: 10px; border-radius: 5px; border: 1px solid #4caf50; display: none; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+    <span style="font-weight: bold; color: #2e7d32;">✅ Clear Remaining Balance?</span>
+    <button onclick="document.getElementById('manualPaymentModal').classList.add('active')" style="background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">
+        Pay in Full
+    </button>
+</div>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button onclick="openAddDutyModal()">Add Duty</button>
+            <button onclick="openAdvanceModal()">Give Advance</button>
+        </div>
+
+        <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; display: flex; gap: 10px;">
+            <button onclick="resetWorkLogs()" style="flex: 1; background-color: #ff9800; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
+                🔄 Reset Work Logs
+            </button>
+            <button onclick="resetFullSalaryLedger()" style="flex: 1; background-color: #d32f2f; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
+                ❌ Reset Full Ledger
+            </button>
+        </div>
+    </div>
+
+    <div id="salaryLedgerContainer" style="margin-top:20px; display:none;">
+        <table border="1" width="100%" cellpadding="8">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Details</th>
+                    <th>Mode</th>
+                    <th>Amount</th>
+                    <th>Remaining</th>
+                </tr>
+            </thead>
+            <tbody id="salaryLedgerBody"></tbody>
+        </table>
+    </div>
+
+    </section>
+
+    <div id="dutyModal" class="salary-modal">
+        <div class="salary-modal-content">
+            <h3>Add Duty</h3>
+            <label>Duty Type</label>
+            <select id="dutyTypeSelect" onchange="toggleDutyFields()">
+                <option value="day">Working Day</option>
+                <option value="shift">Shift</option>
+                <option value="month">Fixed Monthly</option>
+            </select>
+            <div id="dayField">
+                <label>Number of Working Days</label>
+                <input type="number" id="dayCount" min="1">
+            </div>
+            <div id="shiftField" style="display:none;">
+                <label>Number of Shifts</label>
+                <input type="number" id="shiftCount" min="1">
+            </div>
+            <label>Rate</label>
+            <input type="number" id="dutyRate" min="0">
+            <div class="modal-buttons">
+                <button onclick="saveDuty()">Add Duty</button>
+                <button onclick="closeDutyModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="manualPaymentModal" class="custom-modal">
+    <div class="custom-modal-content" style="border-top: 5px solid #4caf50;">
+        <h3 style="margin-top: 0; color: #2e7d32;">Confirm Payment?</h3>
+        <p style="color: #666; font-size: 14px; line-height: 1.5;">
+            Are you sure you want to mark this salary as <strong>PAID</strong>?
+            <br>
+            This will bring the remaining balance to <strong>₹0.00</strong>.
+        </p>
+
+        <div style="margin-top: 15px;">
+            <label style="font-weight:bold; font-size:14px; color:#333;">Payment Mode:</label>
+            <select id="fullPaymentMode" style="width:100%; margin-top:5px; padding:8px; border-radius:4px; border:1px solid #ccc;">
+                <option value="">Select Payment Mode</option>
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="netbanking">Net Banking</option>
+            </select>
+        </div>
+
+        <div style="background: #fff3e0; padding: 10px; border-radius: 5px; margin-top: 15px; border: 1px solid #ffcc80;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #e65100; font-weight: bold;">
+                <input type="checkbox" id="endDutyCheckbox" style="transform: scale(1.2);">
+                Also release employee? (Set Status to Active)
+            </label>
+            <p style="margin: 5px 0 0 25px; font-size: 11px; color: #d84315;">
+                Check this if the work assignment is completely finished.
+            </p>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button onclick="closeManualPaymentModal()" style="background: #e0e0e0; color: #333; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+            <button onclick="confirmManualPayment()" style="background: #4caf50; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">Confirm</button>
+        </div>
+    </div>
+</div>
+
+    <div id="advanceModal" class="salary-modal">
+        <div class="salary-modal-content">
+            <h3>Salary Advance</h3>
+            <label>Advance Amount</label>
+            <input type="number" id="advanceAmount" min="1">
+            <label>Payment Mode</label>
+            <select id="advancePaymentMode">
+                <option value="">Select Payment Mode</option>
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="netbanking">Net Banking</option>
+            </select>
+            <div class="modal-buttons">
+                <button onclick="saveAdvance()">Confirm</button>
+                <button onclick="closeAdvanceModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <section id="addEmployee" class="sub-section">
       <h2>Add Employee</h2>
@@ -205,88 +381,162 @@
     </section>
 
     <section id="financeSection" class="sub-section">
-
-    <h2>Finance Dashboard</h2>
-    <h3>Set Opening Balance</h3>
-
-    <input type="number" id="openingBank" placeholder="Opening Bank Balance">
-    <input type="number" id="openingCash" placeholder="Opening Cash Balance">
-    <button onclick="setOpeningBalance()">Set Balance</button>
-
-    <hr>
-
-    <div class="finance-balance-box">
-        <div>
-            <h3>Bank Balance</h3>
-            <p id="bankBalance">₹0</p>
+        <h2>Finance Dashboard</h2>
+        <div class="finance-cards">
+            <div class="finance-card glass">
+                <h4>Bank Balance</h4>
+                <p id="bankBalance">₹0</p>
+            </div>
+            <div class="finance-card glass">
+                <h4>Cash Balance</h4>
+                <p id="cashBalance">₹0</p>
+            </div>
+            <div class="finance-card glass">
+                <h4>Total Balance</h4>
+                <p id="totalBalance">₹0</p>
+            </div>
+            <div class="finance-card glass">
+                <h4>This Month Expense</h4>
+                <p id="monthlyExpense">₹0</p>
+            </div>
         </div>
-        <div>
-            <h3>Cash Balance</h3>
-            <p id="cashBalance">₹0</p>
+        <div class="card" style="background: #f3e5f5; border-left: 5px solid #ff9800;">
+    <h3>This Month Profit</h3>
+    <p id="monthlyProfit" style="font-size: 24px; font-weight: bold; color: #ff9800;">₹0.00</p>
+    <p style="font-size: 12px; color: #666; margin-top: 5px;">Income - Expense (Current Month)</p>
+</div>
+        <div id="noteModal" class="note-modal">
+            <div class="note-modal-content">
+                <span class="note-close" onclick="closeNoteModal()">✖</span>
+                <h3>Transaction Note</h3>
+                <p id="noteModalText"></p>
+            </div>
         </div>
-    </div>
-
-    <hr>
-
-    
-
-<h3>Add Transaction</h3>
-
-<input type="date" id="txnDate">
-<select id="paidTo">
-    <option value="">Select Person</option>
-</select>
-<select id="category">
-    <option value="salary">Salary</option>
-    <option value="vendor">Vendor Payment</option>
-    <option value="expense">Other Expense</option>
-</select>
-<select id="paymentMode">
-    <option value="upi">UPI</option>
-    <option value="cash">Cash</option>
-    <option value="netbanking">Netbanking</option>
-</select>
-<input type="number" id="amount" placeholder="Amount">
-<input type="text" id="notes" placeholder="Notes">
-<button onclick="addFinanceTransaction()">Add Transaction</button>
-
-<hr>
-
-<h3>Transactions</h3>
-<table border="1" width="100%">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Paid To</th>
-            <th>Category</th>
-            <th>Mode</th>
-            <th>Amount</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody id="financeTableBody"></tbody>
-</table>
-</section>
+        <hr>
+        <h3>Set Opening Balance</h3>
+        <div style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button onclick="resetFinanceBalance()" class="primary-btn" style="background:#dc3545;">Reset Balance</button>
+            <button onclick="resetMonthlyExpense()" class="primary-btn" style="background:#ff9800;">Reset This Month Expense</button>
+            <button onclick="resetMonthlyProfit()" style="background:#dc3545;color:white;">
+Reset This Month Profit
+</button>
+        </div>
+        <div class="finance-form glass">
+            <input type="number" id="openingBank" placeholder="Opening Bank Balance">
+            <input type="number" id="openingCash" placeholder="Opening Cash Balance">
+            <button onclick="setFinanceOpeningBalance()" class="primary-btn">Set Balance</button>
+        </div>
+        <hr>
+        <h3>Add Transaction</h3>
+        <div class="finance-form glass">
+            <select id="transactionType">
+                <option value="debit">Expense</option>
+                <option value="credit">Income</option>
+            </select>
+            <input type="date" id="txnDate">
+            <select id="paidTo">
+                <option value="">Select Person</option>
+            </select>
+            <select id="category">
+                <option value="salary">Salary</option>
+                <option value="vendor">Vendor Payment</option>
+                <option value="expense">Other Expense</option>
+                <option value="income">Client Payment</option>
+            </select>
+            <select id="paymentMode">
+                <option value="upi">UPI</option>
+                <option value="cash">Cash</option>
+                <option value="netbanking">Netbanking</option>
+            </select>
+            <input type="number" id="amount" placeholder="Amount">
+            <input type="text" id="notes" placeholder="Notes">
+            <button onclick="addFinanceTransaction()" class="primary-btn">Add Transaction</button>
+        </div>
+        <hr>
+        <h3>Transactions</h3>
+        <div class="finance-table-wrapper glass">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Paid To</th>
+                        <th>Category</th>
+                        <th>Mode</th>
+                        <th>Amount</th>
+                        <th>Running Balance</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="financeTableBody"></tbody>
+            </table>
+        </div>
+    </section>
 
     <section id="leaveSection" class="sub-section">
-      <h2>Leave Management (Coming Soon)</h2>
+        <div class="header-flex">
+            <h2>Leave Management</h2>
+            <button onclick="openLeaveModal()" class="action-btn" style="background: #007bff; color: white; padding: 5px 10px; border:none; border-radius:4px;">+ Record Leave</button>
+        </div>
+        <div class="table-container" style="margin-top:20px;">
+            <table width="100%" border="1">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>Days</th>
+                        <th>Reason</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="leaveTableBody"></tbody>
+            </table>
+        </div>
     </section>
+    <section id="settingsSection" class="sub-section">
+
+<h2>System Settings</h2>
+
+<h3>Account</h3>
+
+<button onclick="logoutUser()">Logout</button>
+<button onclick="changePassword()">Change Password</button>
+<button onclick="backupERP()">Backup ERP</button>
+<button onclick="restoreERP()">Restore ERP</button>
+
+<br><br>
+
+<h3>Data Management</h3>
+
+<button onclick="backupERP()">Backup ERP Data</button>
+
+<br><br>
+
+<h3>System Controls</h3>
+
+<button onclick="resetInvoiceCounter()">Reset Invoice Counter</button>
+
+<button onclick="resetEmployeeStatus()">Reset Employee Status</button>
+
+<button onclick="clearERP()" style="background:red;color:white;">
+Reset Entire ERP
+</button>
+
+</section>
 
     <section id="createInvoice" class="sub-section">
       <h2>Create Invoice</h2>
-      
       <div class="invoice-company">
-        <h3>SUMUKHA FACILITATORS PRIVATE LIMITED</h3>
-        <p>No 477, 45th CRS, Jayanagar 8th Block, Bangalore</p>
-        <p>GSTIN/UIN: 29AAUCS4592E1ZN | State: Karnataka (29)</p>
-        <p>CIN: U74900KA2014PTC073975</p>
-        <p>Email: homenursingservicesbangalore@gmail.com</p>
-      </div>
-      
+  <h3 id="companyName"></h3>
+  <p id="companyAddress"></p>
+  <p id="companyGST"></p>
+  <p id="companyCIN"></p>
+  <p id="companyEmail"></p>
+</div>
       <hr>
-
       <div class="invoice-top-grid">
-        
         <div>
           <h4>Buyer (Bill To)</h4>
           <select id="customerSelect" style="margin-bottom: 10px; width: 100%;">
@@ -296,25 +546,18 @@
           <textarea id="billAddress" placeholder="Customer Address" style="width: 100%; margin-bottom: 10px; height: 60px;"></textarea>
           <input id="billState" placeholder="State (e.g., Karnataka, New Delhi)" style="width: 100%;">
         </div>
-
         <div>
           <h4>Invoice Details</h4>
           <input id="invoiceNumber" placeholder="Invoice No" readonly style="width: 100%; margin-bottom: 10px; background-color: #f4f4f4;">
-          
           <label style="font-size: 12px; color: #555;">Invoice Date</label>
           <input type="date" id="invoiceDate" style="width: 100%; margin-bottom: 10px;">
-          
           <label style="font-size: 12px; color: #555;">Due Date (Optional)</label>
           <input type="date" id="dueDate" style="width: 100%;">
-          
           <label style="font-size:12px; color:#555; display:block; margin-top:5px;">Customer Contact No</label>
           <input type="text" id="invoiceCustomerPhone" readonly style="width:100%; margin-bottom:10px; background:#f4f4f4;">
         </div>
-
       </div>
-      
       <hr>
-
       <table id="invoiceItemsTable" border="1" width="100%">
         <thead>
           <tr>
@@ -331,16 +574,12 @@
       </table>
       <br>
       <button onclick="addInvoiceRow()">Add Item</button>
-      
       <hr>
-
       <h4>Tax Type</h4>
       <label><input type="radio" name="taxType" value="none" checked> No Tax</label>
       <label><input type="radio" name="taxType" value="gst"> GST 18%</label>
       <label><input type="radio" name="taxType" value="cgst_sgst"> CGST 9% + SGST 9%</label>
-      
       <hr>
-
       <div class="invoice-totals">
         Subtotal: ₹ <span id="subtotalDisplay">0.00</span><br>
         Tax: ₹ <span id="taxDisplay">0.00</span><br>
@@ -348,25 +587,21 @@
         Amount in Words:
         <div id="amountWords"></div>
       </div>
-      
       <hr>
       <button onclick="saveInvoiceRecord()">Save Invoice</button>
       <br><br>
-      
     </section>
 
     <section id="allInvoices" class="sub-section">
       <h2>All Invoices</h2>
       <div style="display: flex; gap: 15px; margin-bottom: 15px; max-width: 900px;">
           <input type="text" id="invoiceSearchInput" placeholder="Search by Invoice No or Customer Name..." oninput="filterInvoices()" style="flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-          
           <select id="invoiceTaxFilter" onchange="filterInvoices()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
             <option value="All">All Tax Types</option>
             <option value="gst">IGST (18%)</option>
             <option value="cgst_sgst">CGST + SGST</option>
             <option value="none">Non-GST</option>
           </select>
-          
           <select id="invoiceStatusFilter" onchange="filterInvoices()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
               <option value="All">All Statuses</option>
               <option value="Draft">Draft</option>
@@ -397,14 +632,83 @@
   </main>
 </div>
 
+<div id="paymentModal" class="note-modal">
+    <div class="note-modal-content">
+        <h3>Record Payment</h3>
+        <select id="invoicePaymentMode" style="width:100%; margin-top:10px;">
+            <option value="cash">Cash</option>
+            <option value="upi">UPI</option>
+            <option value="netbanking">Netbanking</option>
+        </select>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button onclick="confirmInvoicePayment()" class="primary-btn">Confirm</button>
+            <button onclick="closePaymentModal()" class="primary-btn" style="background:#dc3545;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="leaveModal" class="custom-modal">
+    <div class="custom-modal-content">
+        <h3>Record Leave</h3>
+        <label>Employee:</label>
+        <select id="leaveEmployeeSelect" style="width:100%; margin-bottom:10px; padding:8px;"></select>
+        <label>Leave Type:</label>
+        <select id="leaveType" style="width:100%; margin-bottom:10px; padding:8px;">
+            <option value="Casual Leave">Casual Leave</option>
+            <option value="Sick Leave">Sick Leave</option>
+            <option value="Paid Leave">Paid Leave</option>
+            <option value="Unpaid Leave">Unpaid Leave</option>
+        </select>
+        <label>Start Date:</label>
+        <input type="date" id="leaveStartDate" style="width:100%; margin-bottom:10px; padding:8px;">
+        <label>Duration (Days):</label>
+        <input type="number" id="leaveDays" value="1" min="0.5" step="0.5" style="width:100%; margin-bottom:10px; padding:8px;">
+        <label>Reason:</label>
+        <input type="text" id="leaveReason" placeholder="e.g. Fever, Family Function" style="width:100%; margin-bottom:20px; padding:8px;">
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="closeLeaveModal()" style="background: #e0e0e0; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Cancel</button>
+            <button onclick="saveLeave()" style="background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="workLocationModal" class="custom-modal">
+    <div class="custom-modal-content">
+        <h3 style="margin-top: 0; color: #333;">Approve Assignment</h3>
+        <p style="color: #666; font-size: 14px;">Please enter the work location or address where the employee will be working:</p>
+        <input type="text" id="workLocationInput" placeholder="e.g. Main Office, Site A..." style="width: 100%; padding: 10px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;">
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="cancelWorkLocation()" style="background: #e0e0e0; color: #333; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+            <button onclick="confirmWorkLocation()" style="background: #4caf50; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">Approve & Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="cancelWorkingModal" class="custom-modal">
+    <div class="custom-modal-content">
+        <h3 style="margin-top: 0; color: #d32f2f;">Change to Active?</h3>
+        <p style="color: #666; font-size: 14px;">This candidate is currently working. Are you sure you want to change their status to Active? This will remove them from their current location.</p>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button onclick="abortCancelWorking()" style="background: #e0e0e0; color: #333; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">No, Keep Working</button>
+            <button onclick="confirmCancelWorking()" style="background: #f44336; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer;">Yes, Change Status</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="employees.js"></script>
-<script src="storage.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<script src="invoice.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+
+<script src="storage.js"></script>
+<script src="employees.js"></script>
 <script src="finance.js"></script>
+
+<script src="invoice.js"></script>
+
+<script src="leave.js"></script>
+<script src="settings.js"></script>
+
 <script src="app.js"></script>
 
 </body>

@@ -1,4 +1,4 @@
-let db = JSON.parse(localStorage.getItem("erpDB")) || {
+window.db = JSON.parse(localStorage.getItem("erpDB")) || {
    employees: [],
    invoices: [],
    leaves: [],
@@ -6,7 +6,7 @@ let db = JSON.parse(localStorage.getItem("erpDB")) || {
 };
 
 function saveDB() {
-  localStorage.setItem("erpDB", JSON.stringify(db));
+  localStorage.setItem("erpDB", JSON.stringify(window.db));
 }
 // Initialize invoices if not exists
 if (!localStorage.getItem("invoices")) {

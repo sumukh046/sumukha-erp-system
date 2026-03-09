@@ -10,6 +10,7 @@ function addEmployee() {
   }
 
   db.employees.push({
+    
     id: Date.now(),
     firstName: firstName.value,
     middleName: middleName.value,
@@ -26,7 +27,11 @@ function addEmployee() {
     aadharVerified: aadharVerified.value,
     status: "Active",
     workPlace: "",
-    createdAt: new Date().toLocaleString()
+    createdAt: new Date().toLocaleString(),
+    salaryConfig: {
+    defaultDayRate: 0,
+    defaultShiftRate: 0
+}
   });
 
   saveDB();
@@ -45,49 +50,7 @@ function deleteEmployee(id) {
   updateDashboard();
 }
 
-function loadEmployees() {
-
-  let table = document.getElementById("empTable");
-  if (!table) return;
-
-  table.innerHTML = `
-    <tr>
-      <th>Name</th>
-      <th>Role</th>
-      <th>Mobile</th>
-      <th>Status</th>
-      <th>Working At</th>
-      <th>Action</th>
-    </tr>
-  `;
-
-  db.employees.forEach(emp => {
-
-    let statusClass = "";
-
-    if (emp.status === "Working") statusClass = "status-working";
-    else if (emp.status === "Active") statusClass = "status-active";
-    else if (emp.status === "On Leave") statusClass = "status-leave";
-    else if (emp.status === "Left Company") statusClass = "status-left";
-
-    table.innerHTML += `
-      <tr>
-        <td>${emp.firstName} ${emp.middleName} ${emp.lastName}</td>
-        <td>${emp.role}</td>
-        <td>${emp.mobile}</td>
-        <td><span class="${statusClass}">${emp.status}</span></td>
-        <td>${emp.status === "Working" ? (emp.workPlace || "-") : "-"}</td>
-        <td>
-          <button onclick="viewEmployee(${emp.id})">View</button>
-          <button onclick="downloadSingleEmployee(${emp.id})">Download</button>
-          <button class="danger" onclick="deleteEmployee(${emp.id})">Remove</button>
-        </td>
-      </tr>
-    `;
-  });
-}
 function loadStatusTable() {
-
   let table = document.getElementById("statusTable");
   if (!table) return;
 
@@ -101,13 +64,44 @@ function loadStatusTable() {
   `;
 
   db.employees.forEach(emp => {
-
     let statusClass = "";
 
+    // Connect the CSS colors
     if (emp.status === "Working") statusClass = "status-working";
     else if (emp.status === "Active") statusClass = "status-active";
     else if (emp.status === "On Leave") statusClass = "status-leave";
     else if (emp.status === "Left Company") statusClass = "status-left";
+    else if (emp.status === "Pending") statusClass = "status-pending"; 
+
+    // 🔥 STRICT DROPDOWN LOGIC
+    let dropdownOptions = "";
+    
+    if (emp.status === "Pending") {
+        // Locked Dropdown: Only allows approving to working or canceling back to active
+        dropdownOptions = `
+          <select onchange="changeStatus(${emp.id}, this.value, this)" style="border: 2px solid #ff9800; background-color: #fff3e0; font-weight: bold; outline: none;">
+            <option value="Pending" selected>⏳ Pending (Awaiting Approval)</option>
+            <option value="Working">✅ Approve -> Working</option>
+            <option value="Active">❌ Cancel Assignment (Back to Active)</option>
+          </select>
+        `;
+    } else if (emp.status === "On Leave") {
+        // 🔥 NEW: Locked Dropdown for Leave Management
+        dropdownOptions = `
+          <select disabled style="border: 2px solid #9e9e9e; background-color: #f5f5f5; color: #757575; font-weight: bold; outline: none; cursor: not-allowed;">
+            <option value="On Leave" selected>🔒 Locked (Manage in Leave Tab)</option>
+          </select>
+        `;
+    } else {
+        // Normal Dropdown: Cannot manually switch TO Pending or On Leave from here
+        dropdownOptions = `
+          <select onchange="changeStatus(${emp.id}, this.value, this)">
+            <option value="Active" ${emp.status==="Active"?"selected":""}>Active</option>
+            <option value="Working" ${emp.status==="Working"?"selected":""}>Working</option>
+            <option value="Left Company" ${emp.status==="Left Company"?"selected":""}>Left Company</option>
+          </select>
+        `;
+    }
 
     table.innerHTML += `
       <tr>
@@ -120,12 +114,7 @@ function loadStatusTable() {
         </td>
 
         <td>
-          <select onchange="changeStatus(${emp.id}, this.value)">
-            <option value="Active" ${emp.status==="Active"?"selected":""}>Active</option>
-            <option value="Working" ${emp.status==="Working"?"selected":""}>Working</option>
-            <option value="On Leave" ${emp.status==="On Leave"?"selected":""}>On Leave</option>
-            <option value="Left Company" ${emp.status==="Left Company"?"selected":""}>Left Company</option>
-          </select>
+          ${dropdownOptions}
         </td>
 
         <td>
@@ -139,27 +128,113 @@ function loadStatusTable() {
     `;
   });
 }
-function changeStatus(id, status) {
+
+function changeStatus(id, newStatus, selectElement) {
   let emp = db.employees.find(e => e.id === id);
+  let oldStatus = emp.status;
 
-  emp.status = status;
+  // 1. If changing TO Working (Show Work Location Modal)
+  if (newStatus === "Working") {
+    pendingApprovalId = id;
+    pendingApprovalSelect = selectElement;
+    pendingOldStatus = oldStatus;
 
-  // 🔥 If employee is NOT working anymore, clear working details
-  if (status !== "Working") {
-    emp.workPlace = "";
+    document.getElementById("workLocationInput").value = "";
+    document.getElementById("workLocationModal").classList.add("active");
+    return; 
+  }
+
+  // 2. 🔥 NEW: If changing FROM Working TO Active (Show Confirmation Modal)
+  if (oldStatus === "Working" && newStatus === "Active") {
+    pendingApprovalId = id;
+    pendingApprovalSelect = selectElement;
+    pendingOldStatus = oldStatus;
+
+    document.getElementById("cancelWorkingModal").classList.add("active");
+    return;
+  }
+
+  // Normal flow for switching to On Leave, Left Company, etc.
+  executeStatusChange(id, newStatus);
+}
+
+// Helper function to actually apply the changes to the database
+// Helper function to actually apply the changes to the database
+function executeStatusChange(id, newStatus) {
+  let emp = db.employees.find(e => e.id === id);
+  if(!emp) return;
+
+  emp.status = newStatus;
+  
+  // Clear the address if they stop working
+  if (newStatus !== "Working") {
+    emp.workPlace = ""; 
   }
 
   saveDB();
   loadStatusTable();
-  updateDashboard();
+  if(typeof loadEmployees === "function") loadEmployees(); // 🔥 NEW: Refresh All Employees table
+  if(typeof updateDashboard === "function") updateDashboard();
 }
 
-function updateWorkPlace(id, place) {
-  let emp = db.employees.find(e => e.id === id);
-  emp.workPlace = place;
-  saveDB();
+// --- WORK LOCATION MODAL LOGIC ---
+function confirmWorkLocation() {
+    let place = document.getElementById("workLocationInput").value.trim();
+    
+    if (place === "") {
+        alert("Work location is required to approve the Working status.");
+        return;
+    }
+
+    let emp = db.employees.find(e => e.id === pendingApprovalId);
+    if (emp) {
+        emp.status = "Working";
+        emp.workPlace = place;
+        
+        saveDB();
+        loadStatusTable(); 
+        if(typeof loadEmployees === "function") loadEmployees(); // 🔥 NEW: Refresh All Employees table
+        if(typeof updateDashboard === "function") updateDashboard();
+    }
+
+    closeWorkLocationModal();
 }
 
+function cancelWorkLocation() {
+    if (pendingApprovalSelect) {
+        pendingApprovalSelect.value = pendingOldStatus;
+    }
+    closeWorkLocationModal();
+}
+
+function closeWorkLocationModal() {
+    document.getElementById("workLocationModal").classList.remove("active");
+    pendingApprovalId = null;
+    pendingApprovalSelect = null;
+    pendingOldStatus = null;
+}
+
+// --- 🔥 NEW: CANCEL WORKING MODAL LOGIC ---
+function confirmCancelWorking() {
+    // User clicked "Yes", execute the change to "Active"
+    executeStatusChange(pendingApprovalId, "Active");
+    closeCancelWorkingModal();
+}
+
+function abortCancelWorking() {
+    // User clicked "No", revert the dropdown back to "Working"
+    if (pendingApprovalSelect) {
+        pendingApprovalSelect.value = pendingOldStatus;
+    }
+    closeCancelWorkingModal();
+}
+
+function closeCancelWorkingModal() {
+    document.getElementById("cancelWorkingModal").classList.remove("active");
+    pendingApprovalId = null;
+    pendingApprovalSelect = null;
+    pendingOldStatus = null;
+}
 function viewEmployee(id) {
 
   let emp = db.employees.find(e => e.id === id);

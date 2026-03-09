@@ -20,13 +20,20 @@ let FinanceCore = (function () {
         return "TXN-" + Date.now();
     }
 
-    function addTransaction(data) {
+   function addTransaction(data) {
 
+    let paidToName = data.paidTo;
+    let paidToValue = data.paidTo;
+
+    // 🔥 If coming from manual Finance form (dropdown exists)
     const select = document.getElementById("paidTo");
-    const paidToName = select.options[select.selectedIndex].text;
-    const paidToValue = data.paidTo;
 
-    if (!paidToValue) {
+    if (select && select.value === data.paidTo) {
+        paidToName = select.options[select.selectedIndex].text;
+        paidToValue = select.value;
+    }
+
+    if (!paidToName) {
         alert("Select a person");
         return;
     }
@@ -34,20 +41,32 @@ let FinanceCore = (function () {
     const transaction = {
         id: generateId(),
         date: data.date,
-        paidTo: paidToName,
+        paidTo: paidToName,   // 🔥 Always store correct name
         paidToId: paidToValue,
         category: data.category,
         paymentMode: data.paymentMode,
-        amount: parseFloat(data.amount),
+        amount: Math.round(parseFloat(data.amount) * 100) / 100,
         notes: data.notes || "",
-        type: "debit",
+        type: data.type,
         createdAt: new Date().toISOString()
     };
 
-    if (transaction.paymentMode === "cash") {
-        financeBalance.cashBalance -= transaction.amount;
+    if (transaction.type === "credit") {
+
+        if (transaction.paymentMode === "cash") {
+            financeBalance.cashBalance += transaction.amount;
+        } else {
+            financeBalance.bankBalance += transaction.amount;
+        }
+
     } else {
-        financeBalance.bankBalance -= transaction.amount;
+
+        if (transaction.paymentMode === "cash") {
+            financeBalance.cashBalance -= transaction.amount;
+        } else {
+            financeBalance.bankBalance -= transaction.amount;
+        }
+
     }
 
     transactions.push(transaction);

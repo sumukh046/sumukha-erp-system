@@ -292,15 +292,22 @@ points="0,420 120,380 240,400 360,300 480,340 600,280 720,320 840,240 960,260 10
 
 /* ===== LOGIN AUTH ===== */
 function loginUser(){
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
 
-    // Change credentials here
-    if(username === "admin" && password === "1234"){
-        localStorage.setItem("erpLoggedIn","true");
-        window.location.href = "index.html";
-    } else {
-        alert("Invalid Username or Password");
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    const savedPass = localStorage.getItem("erpPassword") || "admin123";
+
+    if(username === "admin" && password === savedPass){
+
+        localStorage.setItem("erpUser","loggedIn");
+
+        window.location.href = "index.html"; // redirect to dashboard
+
+    }else{
+
+        alert("Invalid login");
+
     }
 }
 

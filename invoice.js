@@ -32,15 +32,15 @@ const InvoiceCore = (function () {
 // CUSTOMER LOCKING HELPER
 // ===============================
 function toggleCustomerLock(isLocked) {
-    // 🔴 FIXED: Now permanently locks the fields so you cannot type in or click them at all
-    const fields = ["billName", "billAddress", "billState", "invoiceDate", "invoiceCustomerPhone"];
+    const fields = ["billName","billAddress","billState","invoiceDate","invoiceCustomerPhone"];
+
     fields.forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
-            el.readOnly = true; 
-            el.style.backgroundColor = "#f4f4f4";
-            el.style.pointerEvents = "none"; // Completely disables mouse clicks/typing/calendar
-        }
+        if (!el) return;
+
+        el.readOnly = isLocked;
+        el.style.pointerEvents = isLocked ? "none" : "auto";
+        el.style.backgroundColor = isLocked ? "#f4f4f4" : "";
     });
 }
 
@@ -183,8 +183,10 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
     const doc = new jsPDF();
 
     // 🚨 PASTE YOUR HUGE BASE64 IMAGE STRINGS BETWEEN THESE QUOTES 🚨
-    const logoBase64 = ""; 
-   
+    const logoBase64 = "";
+    const stampBase64_GST = ""
+     const stampBase64_NonGST =""
+    
     let invoiceNo = "", invoiceDate = "", customerName = "", billAddress = "", items = [], subtotal = 0, cgst = 0, sgst = 0, gst = 0, grandTotal = 0;
 
     if (invoiceData) {
@@ -200,8 +202,8 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
         grandTotal = invoiceData.total;
     } else {
         invoiceNo = document.getElementById("invoiceNumber").value;
-        invoiceDate = document.getElementById("invoiceDate").value;
-        billAddress = document.getElementById("billAddress").value;
+        invoiceDate = document.getElementById("invoiceDate")?.value || new Date().toISOString().slice(0,10);
+        billAddress = document.getElementById("billAddress")?.value || "";
         
         const selectedIndex = document.getElementById("customerSelect").value;
         const manualName = document.getElementById("billName").value;
@@ -288,7 +290,7 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
     doc.text("Bill To (Buyer):", 15, leftY);
     
     doc.setFont("helvetica", "normal");
-    doc.text(customerName, 15, leftY + 6);
+    doc.text(String(customerName || ""), 15, leftY + 6);
     
     let nextLeftY = leftY + 14;
 
@@ -304,12 +306,12 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
     doc.setFont("helvetica", "bold");
     doc.text("Invoice No:", 135, leftY);
     doc.setFont("helvetica", "normal");
-    doc.text(invoiceNo, 160, leftY);
+    doc.text(String(invoiceNo || ""), 160, leftY);
 
     doc.setFont("helvetica", "bold");
     doc.text("Invoice Date:", 135, leftY + 6);
     doc.setFont("helvetica", "normal");
-    doc.text(invoiceDate, 160, leftY + 6);
+    doc.text(String(invoiceDate || ""), 160, leftY + 6);
 
     currentY = Math.max(nextLeftY, leftY + 14) + 6;
     
@@ -379,7 +381,7 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
     let tY = currentY + 6;
     doc.setFont("helvetica", "bold");
     doc.text("Subtotal:", 135, tY);
-    doc.text("Rs. " + subtotal.toFixed(2), 190, tY, { align: "right" });
+   doc.text("Rs. " + Number(subtotal).toFixed(2), 190, tY, { align: "right" });
     tY += 6;
 
     doc.setFont("helvetica", "normal");
@@ -625,10 +627,24 @@ function updateInvoiceStatus(index, newStatus, selectElement) {
     localStorage.setItem("savedInvoices", JSON.stringify(appInvoices));
 
     if (newStatus === "Paid") {
-        loadInvoiceHistory();
-        updateDashboardAnalytics();
-        return;
-    }
+
+    const invoice = appInvoices[index];
+
+    // 🔥 ADD TO FINANCE LEDGER
+    FinanceCore.addTransaction({
+        type: "credit",
+        date: invoice.invoiceDate || new Date().toISOString().slice(0,10),
+        paidTo: invoice.customerName || "Customer",
+        category: "Invoice Payment",
+        paymentMode: "bank",
+        amount: Number(invoice.total),
+        notes: "Invoice " + invoice.invoiceNo
+    });
+
+    loadInvoiceHistory();
+    updateDashboardAnalytics();
+    return;
+}
 
     if (selectElement) {
         selectElement.className = "status-" + newStatus;
@@ -731,17 +747,52 @@ function updateDashboardAnalytics() {
     const ctx = document.getElementById("revenueChart");
     if (ctx) {
         if (revenueChartInstance) revenueChartInstance.destroy();
-        revenueChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Paid', 'Pending', 'Overdue', 'Draft'],
-                datasets: [{
-                    label: 'Amount ₹',
-                    data: [paid, pending, overdue, draft],
-                    backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d']
-                }]
+        const isDark = document.body.classList.contains("dark-mode");
+
+revenueChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Paid', 'Pending', 'Overdue', 'Draft'],
+        datasets: [{
+            label: 'Amount ₹',
+            data: [paid, pending, overdue, draft],
+            backgroundColor: ['#4CAF50', '#FFB300', '#E53935', '#757575']
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                labels: {
+                    color: isDark ? "#ffffff" : "#000000"
+                }
             }
-        });
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: isDark ? "#ffffff" : "#000000",
+                    font: {
+                        size: 12
+                    }
+                },
+                grid: {
+                    color: isDark ? "#444" : "#ddd"
+                }
+            },
+            y: {
+                ticks: {
+                    color: isDark ? "#ffffff" : "#000000",
+                    font: {
+                        size: 12
+                    }
+                },
+                grid: {
+                    color: isDark ? "#444" : "#ddd"
+                }
+            }
+        }
+    }
+});
     }
 
     let withGST = 0, withoutGST = 0;
@@ -1075,6 +1126,7 @@ function filterInvoices() {
 
 function openCreateInvoice(taxMode) {
     showSection('createInvoice');
+    loadCustomersForInvoice();
     resetInvoiceForm(); 
     
     if (taxMode === 'gst') {
@@ -1090,6 +1142,21 @@ function getTaxLabel(taxType) {
     if (taxType === "gst") return "IGST (18%)";
     if (taxType === "cgst_sgst") return "CGST + SGST";
     return "Non-GST";
+}
+function loadCustomersForInvoice() {
+
+    const db = JSON.parse(localStorage.getItem("erpDB")) || {};
+    appCustomers = db.customers || [];
+
+    const select = document.getElementById("customerSelect");
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Select Saved Customer</option>';
+
+    appCustomers.forEach((cust, index) => {
+        select.innerHTML += `<option value="${index}">${cust.name}</option>`;
+    });
+
 }
 
 document.addEventListener("DOMContentLoaded", function () {

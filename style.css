@@ -291,3 +291,352 @@ select {
 .sub-section.active {
     display: block;
 }
+.finance-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.finance-card {
+    padding: 20px;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.finance-card h4 {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.finance-card p {
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.glass {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.2);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+}
+
+.finance-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 15px;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 30px;
+}
+
+.finance-form input,
+.finance-form select {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.primary-btn {
+    background: #1f3c88;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.finance-table-wrapper {
+    overflow-x: auto;
+    padding: 20px;
+    border-radius: 16px;
+}
+
+.finance-table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.finance-table-wrapper th,
+.finance-table-wrapper td {
+    padding: 12px;
+    text-align: center;
+}
+
+.finance-table-wrapper th {
+    background: rgba(0,0,0,0.05);
+}
+
+.finance-table-wrapper tr:hover {
+    background: rgba(0,0,0,0.03);
+}
+
+.income {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.expense {
+    color: #dc3545;
+    font-weight: bold;
+}
+.note-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: 0.3s ease;
+    z-index: 1000;
+}
+
+.note-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.note-modal-content {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(15px);
+    padding: 25px;
+    border-radius: 16px;
+    width: 350px;
+    transform: scale(0.8);
+    transition: 0.3s ease;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+.note-modal.active .note-modal-content {
+    transform: scale(1);
+}
+
+.note-close {
+    position: absolute;
+    right: 20px;
+    top: 15px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.note-icon {
+    cursor: pointer;
+    color: #1f3c88;
+    font-weight: 500;
+}
+.salary-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.salary-modal.active {
+    display: flex;
+}
+
+.salary-modal-content {
+    background: white;
+    padding: 25px;
+    width: 350px;
+    border-radius: 10px;
+    animation: slideUp 0.3s ease;
+}
+
+.salary-modal-content input,
+.salary-modal-content select {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 6px;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.status-pending {
+    background-color: #ffe0b2;  /* Light Orange background */
+    color: #e65100;             /* Dark Orange text */
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+/* =============================== */
+/* CUSTOM MODAL ANIMATIONS         */
+/* =============================== */
+.custom-modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.custom-modal.active {
+    display: flex;
+    opacity: 1;
+}
+
+.custom-modal-content {
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    transform: translateY(-50px); /* Start slightly higher */
+    transition: transform 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.custom-modal.active .custom-modal-content {
+    transform: translateY(0); /* Slide down into place */
+}
+/* ===============================
+   DARK MODE
+   =============================== */
+
+.dark-mode {
+    background: #121212;
+    color: #e4e4e4;
+}
+
+.dark-mode .sidebar {
+    background: #1e1e1e;
+}
+
+.dark-mode .sub-section {
+    background: #1a1a1a;
+}
+
+.dark-mode table {
+    background: #1e1e1e;
+    color: #e4e4e4;
+}
+
+.dark-mode input,
+.dark-mode textarea,
+.dark-mode select {
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid #444;
+}
+
+.dark-mode button {
+    background: #2d2d2d;
+    color: #fff;
+}
+/* ===============================
+   DARK MODE TOGGLE
+   =============================== */
+
+.dark-toggle-container{
+    margin-top:40px;
+    padding-top:20px;
+    border-top:1px solid #ddd;
+    display:flex;
+    justify-content:flex-end;
+}
+
+.dark-toggle{
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.dark-toggle input{
+    margin-right:8px;
+}
+/* ===============================
+   DASHBOARD CONTROLS
+   =============================== */
+
+.dashboard-controls{
+    display:flex;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+/* ===============================
+   DARK MODE SWITCH
+   =============================== */
+
+.dark-switch{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.dark-switch input{
+    display:none;
+}
+
+.slider{
+    width:50px;
+    height:24px;
+    background:#ccc;
+    border-radius:20px;
+    position:relative;
+    transition:0.3s;
+}
+
+.slider::before{
+    content:"";
+    position:absolute;
+    width:20px;
+    height:20px;
+    background:white;
+    border-radius:50%;
+    top:2px;
+    left:2px;
+    transition:0.3s;
+}
+
+.dark-switch input:checked + .slider{
+    background:#4caf50;
+}
+
+.dark-switch input:checked + .slider::before{
+    transform:translateX(26px);
+}
+
+.switch-label{
+    font-size:14px;
+}
+/* ===============================
+   DARK MODE DASHBOARD FIX
+   =============================== */
+
+.dark-mode .card h3 {
+    color: #ffffff;
+}
+
+.dark-mode .card p {
+    color: #ffffff;
+    font-weight: 600;
+}
+.dark-mode .card {
+    background: #1f1f1f;
+    border: 1px solid #333;
+}
