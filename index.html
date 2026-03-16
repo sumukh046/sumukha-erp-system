@@ -51,16 +51,22 @@
   </aside>
 
   <main class="content">
+    
 
-    <section id="dashboard" class="sub-section active">
-      <h2>Dashboard</h2>
-      <div class="dashboard-controls">
-    <label class="dark-switch">
-        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
-        <span class="slider"></span>
-        <span class="switch-label">Dark Mode</span>
-    </label>
+    <div class="darkmode-top-right">
+<label class="dark-switch">
+<input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+<span class="slider"></span>
+<span class="switch-label">Dark Mode</span>
+</label>
 </div>
+    <section id="dashboard" class="sub-section active">
+        
+      
+
+<h2>Dashboard</h2>
+
+
 
       <h3>Employee Overview</h3>
       <div class="dashboard-grid">
@@ -131,6 +137,7 @@
       <div style="margin-top:40px;">
           <canvas id="revenueChart"></canvas>
       </div>
+      
       
     </section>
 
@@ -710,6 +717,7 @@ Reset Entire ERP
 <script src="settings.js"></script>
 
 <script src="app.js"></script>
+<div id="notificationContainer"></div>
 
 </body>
 </html>

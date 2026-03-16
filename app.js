@@ -207,6 +207,7 @@ function addFinanceTransaction() {
 
     document.getElementById("amount").value = "";
     document.getElementById("notes").value = "";
+    showNotification("💰 Transaction added successfully","success");
 }
 
 function setFinanceOpeningBalance() {

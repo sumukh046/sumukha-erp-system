@@ -433,13 +433,13 @@ function saveInvoiceRecord() {
     const billState = document.getElementById("billState").value;
 
     if (!invoiceNo || !invoiceDate) {
-        alert("Invoice number and date required");
+        showNotification("⚠ Invoice number and date required","error");
         return;
     }
 
     const rows = document.querySelectorAll("#invoiceItemsBody tr");
     if (rows.length === 0) {
-        alert("Add at least one item");
+       showNotification("⚠ Add at least one item","warning");
         return;
     }
 
@@ -487,7 +487,7 @@ function saveInvoiceRecord() {
         message = "Invoice has been edited successfully.";
     } else {
         if (appInvoices.some(inv => inv.invoiceNo === invoiceNo)) {
-            alert("Invoice number already exists");
+           showNotification("⚠ Invoice number already exists","error");
             return;
         }
         appInvoices.push(invoiceData);
@@ -505,7 +505,7 @@ function saveInvoiceRecord() {
     
     resetInvoiceForm();
     updateDashboardAnalytics();
-    alert(message);
+    showNotification("🧾 " + message,"success");
 }
 
 // ===============================
@@ -568,6 +568,7 @@ function regenerateInvoice(index) {
 function deleteInvoice(index) {
     appInvoices.splice(index, 1);
     localStorage.setItem("savedInvoices", JSON.stringify(appInvoices));
+    showNotification("🗑 Invoice deleted","warning");
     if (document.getElementById("invoiceSearchInput")) {
         filterInvoices();
     } else {
@@ -627,6 +628,7 @@ function updateInvoiceStatus(index, newStatus, selectElement) {
     localStorage.setItem("savedInvoices", JSON.stringify(appInvoices));
 
     if (newStatus === "Paid") {
+        
 
     const invoice = appInvoices[index];
 
@@ -640,6 +642,7 @@ function updateInvoiceStatus(index, newStatus, selectElement) {
         amount: Number(invoice.total),
         notes: "Invoice " + invoice.invoiceNo
     });
+    showNotification("💰 Invoice marked as Paid","success");
 
     loadInvoiceHistory();
     updateDashboardAnalytics();
@@ -714,6 +717,7 @@ function checkOverdueInvoices() {
 
     if (needsSaving) {
         localStorage.setItem("savedInvoices", JSON.stringify(appInvoices));
+        showNotification("⚠ Some invoices became overdue","warning");
     }
 }
 
@@ -842,7 +846,7 @@ function saveCustomer() {
     const phone = document.getElementById("customerPhone").value.trim();
 
     if (!name) {
-        alert("Customer name required");
+         showNotification("⚠ Customer name required","error");
         return;
     }
 
@@ -862,7 +866,7 @@ function saveCustomer() {
             c => c.name.trim().toLowerCase() === name.trim().toLowerCase()
         );
         if (exists) {
-            alert("Customer already exists.");
+            showNotification("⚠ Customer already exists","warning");
             return;
         }
 
@@ -893,12 +897,12 @@ function saveCustomer() {
     clearCustomerForm();
     updateDashboardAnalytics();
 
-    alert("Customer saved successfully.");
+    showNotification("👤 Customer saved successfully","success");
 }
 
 function deleteCustomer(index) {
     appCustomers.splice(index, 1);
-   
+   showNotification("🗑 Customer deleted","warning");
 
     loadCustomersTable();
     updateDashboardAnalytics();

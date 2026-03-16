@@ -318,7 +318,7 @@ function togglePassword(){
 }
 
 /* ===== AUTO REDIRECT IF ALREADY LOGGED IN ===== */
-if(localStorage.getItem("erpLoggedIn") === "true"){
+if(localStorage.getItem("erpUser") === "loggedIn"){
     window.location.href = "index.html";
 }
 

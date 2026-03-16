@@ -1,8 +1,7 @@
 window.db = JSON.parse(localStorage.getItem("erpDB")) || {
    employees: [],
    invoices: [],
-   leaves: [],
-   finance: []
+   leaves: []
 };
 
 function saveDB() {

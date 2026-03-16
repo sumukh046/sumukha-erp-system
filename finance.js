@@ -96,10 +96,21 @@ let FinanceCore = (function () {
         if (index !== -1) {
             const transaction = transactions[index];
 
-            if (transaction.paymentMode === "cash") {
-                financeBalance.cashBalance += transaction.amount;
+            // Reverse the original transaction effect
+            if (transaction.type === "credit") {
+                // It added to balance, so subtract it back
+                if (transaction.paymentMode === "cash") {
+                    financeBalance.cashBalance -= transaction.amount;
+                } else {
+                    financeBalance.bankBalance -= transaction.amount;
+                }
             } else {
-                financeBalance.bankBalance += transaction.amount;
+                // It subtracted from balance, so add it back
+                if (transaction.paymentMode === "cash") {
+                    financeBalance.cashBalance += transaction.amount;
+                } else {
+                    financeBalance.bankBalance += transaction.amount;
+                }
             }
 
             transactions.splice(index, 1);

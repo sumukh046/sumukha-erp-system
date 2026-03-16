@@ -39,6 +39,7 @@ function backupERP(){
     link.download = "erp-backup.json";
 
     link.click();
+    showNotification("💾 ERP backup created","success");
 }
 
 
@@ -89,21 +90,8 @@ function clearERP(){
 
     alert("ERP reset completed");
 
+    showNotification("⚠ ERP has been reset","warning");
     location.reload();
-}
-function backupERP(){
-
-    const data = JSON.stringify(localStorage);
-
-    const blob = new Blob([data], {type:"application/json"});
-
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-
-    link.download = "erp-backup.json";
-
-    link.click();
 }
 function restoreERP(){
 
@@ -126,6 +114,7 @@ function restoreERP(){
 
             alert("ERP data restored");
 
+            showNotification("♻ ERP restored successfully","info");
             location.reload();
         }
 
@@ -194,6 +183,31 @@ function loadDarkMode(){
         if(toggle) toggle.checked = true;
 
     }
+
+}
+function showNotification(message,type="success"){
+
+const container=document.getElementById("notificationContainer");
+
+if(!container) return;
+
+const note=document.createElement("div");
+
+note.className="erp-notification erp-"+type;
+
+note.innerHTML=message;
+
+container.appendChild(note);
+
+/* auto remove */
+
+setTimeout(()=>{
+note.style.opacity="0";
+note.style.transform="translateX(40px)";
+setTimeout(()=>{
+note.remove();
+},300);
+},3000);
 
 }
 if(typeof updateDashboardAnalytics === "function"){

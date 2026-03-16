@@ -105,19 +105,21 @@ th, td {
   display: none;
 }
 
-.slider {
+/* 1. Added the missing base track for the Aadhar slider! */
+.toggle-switch .slider {
   position: absolute;
   cursor: pointer;
-  background-color: #ccc;
-  border-radius: 34px;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
+  background-color: #ccc; /* Gray background when off */
   transition: 0.4s;
+  border-radius: 26px;
 }
 
-.slider:before {
+/* 2. The white circle */
+.toggle-switch .slider:before {
   position: absolute;
   content: "";
   height: 20px;
@@ -130,7 +132,7 @@ th, td {
 }
 
 .toggle-switch input:checked + .slider {
-  background-color: #4CAF50;
+  background-color: #4CAF50; /* Green when on */
 }
 
 .toggle-switch input:checked + .slider:before {
@@ -532,6 +534,38 @@ select {
     background: #1e1e1e;
     color: #e4e4e4;
 }
+.dark-mode th {
+    background: #2b2b2b;
+    color: #ffffff;
+}
+.dark-mode .glass {
+    background: rgba(30,30,30,0.8);
+    border: 1px solid #444;
+}
+.dark-mode .salary-modal-content,
+.dark-mode .custom-modal-content {
+    background: #1e1e1e;
+    color: #ffffff;
+}
+.dark-mode .finance-form input,
+.dark-mode .finance-form select {
+    background:#2a2a2a;
+    border:1px solid #444;
+    color:white;
+}
+.dark-mode .finance-table-wrapper tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+.dark-mode .sidebar button:hover{
+    background:#3a3a3a;
+}
+.dark-mode .form-grid input,
+.dark-mode .form-grid textarea,
+.dark-mode .form-grid select{
+    background:#2a2a2a;
+    border:1px solid #444;
+    color:white;
+}
 
 .dark-mode input,
 .dark-mode textarea,
@@ -573,6 +607,7 @@ select {
 .dashboard-controls{
     display:flex;
     align-items:center;
+    justify-content:space-between;
     margin-bottom:20px;
 }
 
@@ -580,49 +615,65 @@ select {
    DARK MODE SWITCH
    =============================== */
 
-.dark-switch{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-weight:600;
-    cursor:pointer;
+/* ===============================
+   DARK MODE SWITCH
+   =============================== */
+
+/* 1. This aligns the entire toggle area to the top right */
+.darkmode-top-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-right: 10px;
 }
 
-.dark-switch input{
-    display:none;
+.dark-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
-.slider{
-    width:50px;
-    height:24px;
-    background:#ccc;
-    border-radius:20px;
-    position:relative;
-    transition:0.3s;
+.dark-switch input {
+    display: none;
 }
 
-.slider::before{
-    content:"";
-    position:absolute;
-    width:20px;
-    height:20px;
-    background:white;
-    border-radius:50%;
-    top:2px;
-    left:2px;
-    transition:0.3s;
+/* 2. Added missing base track for the slider */
+.dark-switch .slider {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 24px;
+    transition: 0.4s;
 }
 
-.dark-switch input:checked + .slider{
-    background:#4caf50;
+/* 3. Your circle is now safely contained inside the track */
+.dark-switch .slider::before {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: 0.3s;
 }
 
-.dark-switch input:checked + .slider::before{
-    transform:translateX(26px);
+.dark-switch input:checked + .slider {
+    background: #4caf50;
 }
 
-.switch-label{
-    font-size:14px;
+.dark-switch input:checked + .slider::before {
+    transform: translateX(26px);
+}
+
+.switch-label {
+    font-size: 14px;
 }
 /* ===============================
    DARK MODE DASHBOARD FIX
@@ -639,4 +690,9 @@ select {
 .dark-mode .card {
     background: #1f1f1f;
     border: 1px solid #333;
+}
+.dashboard-darkmode{
+display:flex;
+justify-content:flex-end;
+margin-bottom:10px;
 }

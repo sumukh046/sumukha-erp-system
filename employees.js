@@ -3,6 +3,19 @@ function allowOnlyNumbers(input) {
 }
 
 function addEmployee() {
+  const firstName = document.getElementById("firstName");
+  const lastName = document.getElementById("lastName");
+  const middleName = document.getElementById("middleName");
+  const role = document.getElementById("role");
+  const age = document.getElementById("age");
+  const gender = document.getElementById("gender");
+  const mobile = document.getElementById("mobile");
+  const guardianPhone = document.getElementById("guardianPhone");
+  const address = document.getElementById("address");
+  const nativePlace = document.getElementById("nativePlace");
+  const languages = document.getElementById("languages");
+  const aadhar = document.getElementById("aadhar");
+  const aadharVerified = document.getElementById("aadharVerified");
 
   if (!firstName.value || !lastName.value || !role.value) {
     alert("Fill required fields");
@@ -33,6 +46,7 @@ function addEmployee() {
     defaultShiftRate: 0
 }
   });
+  showNotification("👤 Employee added successfully","success");
 
   saveDB();
   loadEmployees();
@@ -48,6 +62,7 @@ function deleteEmployee(id) {
   loadEmployees();
   loadStatusTable();
   updateDashboard();
+  showNotification("🗑 Employee deleted","warning");
 }
 
 function loadStatusTable() {
@@ -286,8 +301,9 @@ function closeProfile() {
 /* DOWNLOAD SINGLE EMPLOYEE */
 function downloadSingleEmployee(id) {
 
-    const db = JSON.parse(localStorage.getItem("erpDB")) || { employees: [] };
-    const employees = db.employees;
+    const employees = (window.db && window.db.employees) 
+        ? window.db.employees 
+        : (JSON.parse(localStorage.getItem("erpDB")) || { employees: [] }).employees;
 
     const emp = employees.find(e => e.id === id);
 
