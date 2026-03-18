@@ -167,7 +167,14 @@ function toggleDarkMode(){
     const isDark = document.body.classList.toggle("dark-mode");
 
     localStorage.setItem("erpDarkMode", isDark ? "enabled" : "disabled");
-    updateDashboardAnalytics();
+
+    // Re-apply invoice field lock colours immediately when mode switches
+    if (typeof toggleCustomerLock === "function") {
+        const locked = document.getElementById("billName")?.readOnly || false;
+        toggleCustomerLock(locked);
+    }
+
+    if (typeof updateDashboardAnalytics === "function") updateDashboardAnalytics();
 
 }
 

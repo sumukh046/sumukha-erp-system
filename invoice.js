@@ -127,25 +127,20 @@ function calculateInvoiceLive() {
 
     document.getElementById("amountWords").innerText = total > 0 ? numberToWords(total) : "";
 
-    const companyHeaderElement = document.querySelector(".invoice-company");
-    if (companyHeaderElement) {
-        if (taxType === "none") {
-            companyHeaderElement.innerHTML = `
-                <h3>SUMUKHA HOME NURSING SERVICES</h3>
-                <p>No 477, 45th CRS, Jayanagar 8th Block, Bangalore</p>
-                <p>Email: homenursingservicesbangalore@gmail.com</p>
-                <p>Ph: 9880024265, 99004 98222 | Landline: 080-2244 1963</p>
-            `;
-        } else {
-            companyHeaderElement.innerHTML = `
-                <h3>SUMUKHA FACILITATORS PRIVATE LIMITED</h3>
-                <p>No 477, 45th CRS, Jayanagar 8th Block, Bangalore</p>
-                <p>GSTIN/UIN: 29AAUCS4592E1ZN | State: Karnataka (29)</p>
-                <p>CIN: U74900KA2014PTC073975</p>
-                <p>Email: homenursingservicesbangalore@gmail.com</p>
-                <p>Ph: 9880024265, 99004 98222 | Landline: 080-2244 1963</p>
-            `;
-        }
+    // Update company bar (new inv-company-bar structure)
+    const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.innerText = val; };
+    if (taxType === "none") {
+        setEl("companyName",    "SUMUKHA HOME NURSING SERVICES");
+        setEl("companyAddress", "No 477, 45th CRS, Jayanagar 8th Block, Bangalore");
+        setEl("companyGST",     "");
+        setEl("companyCIN",     "");
+        setEl("companyEmail",   "Email: homenursingservicesbangalore@gmail.com | Ph: 9880024265, 99004 98222 | Landline: 080-2244 1963");
+    } else {
+        setEl("companyName",    "SUMUKHA FACILITATORS PRIVATE LIMITED");
+        setEl("companyAddress", "No 477, 45th CRS, Jayanagar 8th Block, Bangalore");
+        setEl("companyGST",     "GSTIN/UIN: 29AAUCS4592E1ZN | State: Karnataka (29)");
+        setEl("companyCIN",     "CIN: U74900KA2014PTC073975");
+        setEl("companyEmail",   "Email: homenursingservicesbangalore@gmail.com | Ph: 9880024265, 99004 98222 | Landline: 080-2244 1963");
     }
 }
 
@@ -892,6 +887,9 @@ function saveCustomer() {
 
     localStorage.setItem("erpDB", JSON.stringify(db));
 
+    // Sync in-memory array so the table renders the latest data immediately
+    appCustomers = db.customers;
+
     loadCustomerDropdown();
     loadCustomersTable();
     clearCustomerForm();
@@ -902,8 +900,13 @@ function saveCustomer() {
 
 function deleteCustomer(index) {
     appCustomers.splice(index, 1);
-   showNotification("🗑 Customer deleted","warning");
 
+    // Persist the deletion to localStorage
+    const db = JSON.parse(localStorage.getItem("erpDB")) || {};
+    db.customers = appCustomers;
+    localStorage.setItem("erpDB", JSON.stringify(db));
+
+    showNotification("🗑 Customer deleted","warning");
     loadCustomersTable();
     updateDashboardAnalytics();
     loadCustomerDropdown();

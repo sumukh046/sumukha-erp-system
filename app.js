@@ -17,6 +17,34 @@ function showSection(id) {
         section.classList.add("active");
     }
 
+    // Update topbar title
+    const titles = {
+        dashboard: "🏠 Dashboard",
+        addEmployee: "➕ Add Employee",
+        allEmployees: "📋 All Employees",
+        employeeStatus: "🔄 Employee Status",
+        documentsSection: "📁 Documents",
+        salarySection: "💵 Salary",
+        financeSection: "💰 Finance",
+        createInvoice: "✏️ Create Invoice",
+        allInvoices: "📄 All Invoices",
+        customerSection: "🏢 Customers",
+        leaveSection: "🗓️ Leave Management",
+        attendanceSection: "📅 Attendance",
+        settingsSection: "⚙️ Settings"
+    };
+    const titleEl = document.getElementById("topbarTitle");
+    if (titleEl && titles[id]) titleEl.textContent = titles[id];
+
+    // Highlight active nav item
+    document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("nav-active"));
+    document.querySelectorAll(".nav-item").forEach(btn => {
+        const oc = btn.getAttribute("onclick") || "";
+        if (oc.includes("'" + id + "'") || oc.includes("\"" + id + "\"")) {
+            btn.classList.add("nav-active");
+        }
+    });
+
     if (id === "dashboard") {
         if (typeof updateDashboard === "function") updateDashboard();
     }
@@ -52,6 +80,12 @@ function showSection(id) {
     }
     else if (id === "leaveSection") {
         if (typeof loadLeaveTable === "function") loadLeaveTable();
+    }
+    else if (id === "attendanceSection") {
+        if (typeof initAttendanceSection === "function") initAttendanceSection();
+    }
+    else if (id === "documentsSection") {
+        if (typeof initDocumentsSection === "function") initDocumentsSection();
     }
 }
 
@@ -433,16 +467,17 @@ function loadSalaryLedger() {
     });
 
     entries.forEach(e => {
-        const rowStyle = e.type === "Clearance Payment" ? "background-color: #e8f5e9; font-weight:bold; color: #2e7d32;" : "";
+        const isClearance = e.type === "Clearance Payment";
+        const isAdvance   = e.type === "Salary Advance";
+        const rowClass    = isClearance ? "sal-row-clearance" : (isAdvance ? "sal-row-advance" : "");
+        const amtClass    = e.amount >= 0 ? "sal-amt-positive" : "sal-amt-negative";
         const row = `
-            <tr style="${rowStyle}">
+            <tr class="${rowClass}">
                 <td>${e.date}</td>
                 <td>${e.type}</td>
                 <td>${e.details}</td>
-                <td style="text-transform: capitalize;">${e.mode}</td>
-                <td style="color:${e.amount >= 0 ? "green" : "red"}">
-                    ₹${Math.abs(e.amount).toFixed(2)}
-                </td>
+                <td style="text-transform:capitalize;">${e.mode}</td>
+                <td class="${amtClass}">₹${Math.abs(e.amount).toFixed(2)}</td>
                 <td>₹${e.runningBalance.toFixed(2)}</td>
             </tr>
         `;

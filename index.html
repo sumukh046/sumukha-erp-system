@@ -3,63 +3,116 @@
 <head>
   <title>Sumukha ERP System</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    /* Fixed: Changed to 2 columns so it perfectly fits your Buyer / Invoice Details */
-    .invoice-top-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 30px;
-    }
-    
-    /* Toggle Switch Styles */
-    .switch {
-      position: relative;
-      display: inline-block;
-    }
+    <style>
+    /* Font rendering — crisp text, no blur */
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+    /* NO transform:translateZ(0) — it causes black border glitches on tables/cards */
+    .switch { position: relative; display: inline-block; }
+    hr { border: none; border-top: 1px solid var(--border, #e2e8f0); margin: 18px 0; }
   </style>
 </head>
 <body>
 
 <div class="layout">
 
+  <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar">
-    <h2>Sumukha ERP</h2>
-
-    <button onclick="showSection('dashboard')">Dashboard</button>
-
-    <button onclick="toggleEmployeeMenu()">Employees ▼</button>
-    <div id="employeeMenu" style="display:none; margin-left:10px;">
-      <button onclick="showSection('addEmployee')">➤ Add Employee</button>
-      <button onclick="showSection('allEmployees')">➤ All Employees</button>
-      <button onclick="showSection('employeeStatus')">➤ Employee Status</button>
-    </div>
-    <button onclick="showSection('salarySection')">Salary</button>
-    
-
-    <button onclick="showSection('financeSection')">Finance</button>
-
-    <button onclick="toggleInvoiceMenu()">Invoice ▼</button>
-    <div id="invoiceMenu" style="display:none; margin-left:10px;">
-      <button onclick="openCreateInvoice('gst')">➤ Create GST Invoice</button>
-      <button onclick="openCreateInvoice('nongst')">➤ Create Non-GST Invoice</button>
-      <button onclick="showSection('allInvoices')">➤ All Invoices</button>
-      <button onclick="showSection('customerSection')">➤ Customers</button>
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">🏥</div>
+      <div>
+        <div class="sidebar-brand-name">Sumukha ERP</div>
+        <div class="sidebar-brand-sub">Nursing Services</div>
+      </div>
     </div>
 
-    <button onclick="showSection('leaveSection')">Leave Management</button>
-    <button onclick="showSection('settingsSection')">Settings</button>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="showSection('dashboard')">
+        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+
+      <button class="nav-item nav-parent" onclick="toggleEmployeeMenu()">
+        <span class="nav-icon">👥</span><span class="nav-label">Employees</span><span class="nav-arrow">▾</span>
+      </button>
+      <div id="employeeMenu" class="nav-submenu" style="display:none;">
+        <button class="nav-item nav-child" onclick="showSection('addEmployee')">
+          <span class="nav-icon">➕</span><span class="nav-label">Add Employee</span>
+        </button>
+        <button class="nav-item nav-child" onclick="showSection('allEmployees')">
+          <span class="nav-icon">📋</span><span class="nav-label">All Employees</span>
+        </button>
+        <button class="nav-item nav-child" onclick="showSection('employeeStatus')">
+          <span class="nav-icon">🔄</span><span class="nav-label">Employee Status</span>
+        </button>
+        <button class="nav-item nav-child" onclick="showSection('documentsSection')">
+          <span class="nav-icon">📁</span><span class="nav-label">Documents</span>
+        </button>
+      </div>
+
+      <button class="nav-item" onclick="showSection('salarySection')">
+        <span class="nav-icon">💵</span><span class="nav-label">Salary</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('financeSection')">
+        <span class="nav-icon">💰</span><span class="nav-label">Finance</span>
+      </button>
+
+      <button class="nav-item nav-parent" onclick="toggleInvoiceMenu()">
+        <span class="nav-icon">🧾</span><span class="nav-label">Invoice</span><span class="nav-arrow">▾</span>
+      </button>
+      <div id="invoiceMenu" class="nav-submenu" style="display:none;">
+        <button class="nav-item nav-child" onclick="openCreateInvoice('gst')">
+          <span class="nav-icon">✏️</span><span class="nav-label">Create GST Invoice</span>
+        </button>
+        <button class="nav-item nav-child" onclick="openCreateInvoice('nongst')">
+          <span class="nav-icon">📝</span><span class="nav-label">Create Non-GST</span>
+        </button>
+        <button class="nav-item nav-child" onclick="showSection('allInvoices')">
+          <span class="nav-icon">📄</span><span class="nav-label">All Invoices</span>
+        </button>
+        <button class="nav-item nav-child" onclick="showSection('customerSection')">
+          <span class="nav-icon">🏢</span><span class="nav-label">Customers</span>
+        </button>
+      </div>
+
+      <button class="nav-item" onclick="showSection('leaveSection')">
+        <span class="nav-icon">🗓️</span><span class="nav-label">Leave Management</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('attendanceSection')">
+        <span class="nav-icon">📅</span><span class="nav-label">Attendance</span>
+      </button>
+
+      <button class="nav-item" onclick="showSection('settingsSection')">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <!-- Dark mode toggle in sidebar footer -->
+    <div class="sidebar-footer">
+      <label class="sidebar-dark-toggle">
+        <span class="nav-icon">🌙</span>
+        <span class="sidebar-toggle-label">Dark Mode</span>
+        <div class="sidebar-toggle-track">
+          <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+          <span class="sidebar-toggle-thumb"></span>
+        </div>
+      </label>
+    </div>
   </aside>
 
-  <main class="content">
-    
+  <!-- ===== MAIN WRAPPER ===== -->
+  <div class="main-wrapper">
 
-    <div class="darkmode-top-right">
-<label class="dark-switch">
-<input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
-<span class="slider"></span>
-<span class="switch-label">Dark Mode</span>
-</label>
-</div>
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-title" id="topbarTitle">🏠 Dashboard</div>
+      <div class="topbar-right">
+        <div class="topbar-avatar">A</div>
+      </div>
+    </header>
+
+    <main class="content">
+    <div class="darkmode-top-right" style="display:none;"></div>
     <section id="dashboard" class="sub-section active">
         
       
@@ -170,80 +223,82 @@
     </section>
 
     <section id="salarySection" class="sub-section">
+      <h2>💵 Salary Management</h2>
 
-    <h2>Salary Management</h2>
-
-    <div style="max-width:600px; display:flex; gap:15px; flex-wrap:wrap;">
-        <select id="salaryEmployeeSelect" style="flex:1;">
-            <option value="">Select Employee</option>
+      <!-- Employee + Month selectors -->
+      <div class="sal-selectors">
+        <select id="salaryEmployeeSelect">
+          <option value="">Select Employee</option>
         </select>
+        <select id="salaryMonthSelect"></select>
+      </div>
 
-        <select id="salaryMonthSelect" style="flex:1;">
-        </select>
-    </div>
+      <!-- Summary card -->
+      <div id="salarySummaryCard" class="sal-summary-card" style="display:none;">
 
-    <div id="salarySummaryCard" class="card" style="display:none; margin-top:20px; position:relative;">
-        <h3>Monthly Summary</h3>
-        
-        <div class="summary-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-            <div class="stat-box">
-                <p>Total Salary</p>
-                <h2 id="salaryTotal">₹0.00</h2>
-            </div>
-            <div class="stat-box">
-                <p>Paid So Far</p>
-                <h2 id="salaryPaid">₹0.00</h2>
-            </div>
-            <div class="stat-box">
-                <p>Remaining</p>
-                <h2 id="salaryRemaining">₹0.00</h2>
-            </div>
-            <div class="stat-box">
-                <p>Status</p>
-                <h2 id="salaryStatus">Pending</h2>
-            </div>
+        <div class="sal-section-label">Monthly Summary</div>
+
+        <!-- 4 stat boxes -->
+        <div class="sal-stats-grid">
+          <div class="sal-stat sal-stat-blue">
+            <div class="sal-stat-label">Total Salary</div>
+            <div class="sal-stat-value" id="salaryTotal">₹0.00</div>
+          </div>
+          <div class="sal-stat sal-stat-green">
+            <div class="sal-stat-label">Paid So Far</div>
+            <div class="sal-stat-value" id="salaryPaid">₹0.00</div>
+          </div>
+          <div class="sal-stat sal-stat-amber">
+            <div class="sal-stat-label">Remaining</div>
+            <div class="sal-stat-value" id="salaryRemaining">₹0.00</div>
+          </div>
+          <div class="sal-stat sal-stat-purple">
+            <div class="sal-stat-label">Status</div>
+            <div class="sal-stat-value sal-stat-status" id="salaryStatus">Pending</div>
+          </div>
         </div>
 
-        <div id="salaryEmpStatusDisplayWrapper" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
-            <strong>Employee Status:</strong> <span id="salaryEmpStatusDisplay">-</span>
+        <!-- Employee status pill -->
+        <div class="sal-emp-status-row" id="salaryEmpStatusDisplayWrapper">
+          <span class="sal-emp-label">Employee Status</span>
+          <span id="salaryEmpStatusDisplay" class="sal-emp-value">—</span>
         </div>
 
-        <div id="payInFullWrapper" style="background: #e8f5e9; padding: 10px; border-radius: 5px; border: 1px solid #4caf50; display: none; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-    <span style="font-weight: bold; color: #2e7d32;">✅ Clear Remaining Balance?</span>
-    <button onclick="document.getElementById('manualPaymentModal').classList.add('active')" style="background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">
-        Pay in Full
-    </button>
-</div>
-        <div style="margin-top:20px; display:flex; gap:10px;">
-            <button onclick="openAddDutyModal()">Add Duty</button>
-            <button onclick="openAdvanceModal()">Give Advance</button>
+        <!-- Pay in full banner -->
+        <div id="payInFullWrapper" class="sal-pay-banner" style="display:none;">
+          <span class="sal-pay-text">✅ Clear Remaining Balance?</span>
+          <button class="sal-pay-btn" onclick="document.getElementById('manualPaymentModal').classList.add('active')">Pay in Full</button>
         </div>
 
-        <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; display: flex; gap: 10px;">
-            <button onclick="resetWorkLogs()" style="flex: 1; background-color: #ff9800; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
-                🔄 Reset Work Logs
-            </button>
-            <button onclick="resetFullSalaryLedger()" style="flex: 1; background-color: #d32f2f; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">
-                ❌ Reset Full Ledger
-            </button>
+        <!-- Action buttons -->
+        <div class="sal-actions">
+          <button class="sal-btn-action" onclick="openAddDutyModal()">➕ Add Duty</button>
+          <button class="sal-btn-action" onclick="openAdvanceModal()">💸 Give Advance</button>
         </div>
-    </div>
 
-    <div id="salaryLedgerContainer" style="margin-top:20px; display:none;">
-        <table border="1" width="100%" cellpadding="8">
+        <!-- Danger buttons -->
+        <div class="sal-danger-row">
+          <button class="sal-btn-warn" onclick="resetWorkLogs()">🔄 Reset Work Logs</button>
+          <button class="sal-btn-danger" onclick="resetFullSalaryLedger()">❌ Reset Full Ledger</button>
+        </div>
+
+      </div>
+
+      <!-- Ledger table -->
+      <div id="salaryLedgerContainer" class="sal-ledger" style="display:none;">
+        <div class="sal-section-label" style="margin-bottom:12px;">Transaction Ledger</div>
+        <div class="sal-table-wrap">
+          <table>
             <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Details</th>
-                    <th>Mode</th>
-                    <th>Amount</th>
-                    <th>Remaining</th>
-                </tr>
+              <tr>
+                <th>Date</th><th>Type</th><th>Details</th>
+                <th>Mode</th><th>Amount</th><th>Remaining</th>
+              </tr>
             </thead>
             <tbody id="salaryLedgerBody"></tbody>
-        </table>
-    </div>
+          </table>
+        </div>
+      </div>
 
     </section>
 
@@ -388,97 +443,98 @@
     </section>
 
     <section id="financeSection" class="sub-section">
-        <h2>Finance Dashboard</h2>
-        <div class="finance-cards">
-            <div class="finance-card glass">
-                <h4>Bank Balance</h4>
-                <p id="bankBalance">₹0</p>
-            </div>
-            <div class="finance-card glass">
-                <h4>Cash Balance</h4>
-                <p id="cashBalance">₹0</p>
-            </div>
-            <div class="finance-card glass">
-                <h4>Total Balance</h4>
-                <p id="totalBalance">₹0</p>
-            </div>
-            <div class="finance-card glass">
-                <h4>This Month Expense</h4>
-                <p id="monthlyExpense">₹0</p>
-            </div>
+      <h2>💰 Finance Dashboard</h2>
+
+      <!-- Balance cards -->
+      <div class="finance-cards">
+        <div class="finance-card glass">
+          <h4>Bank Balance</h4>
+          <p id="bankBalance">₹0</p>
         </div>
-        <div class="card" style="background: #f3e5f5; border-left: 5px solid #ff9800;">
-    <h3>This Month Profit</h3>
-    <p id="monthlyProfit" style="font-size: 24px; font-weight: bold; color: #ff9800;">₹0.00</p>
-    <p style="font-size: 12px; color: #666; margin-top: 5px;">Income - Expense (Current Month)</p>
-</div>
-        <div id="noteModal" class="note-modal">
-            <div class="note-modal-content">
-                <span class="note-close" onclick="closeNoteModal()">✖</span>
-                <h3>Transaction Note</h3>
-                <p id="noteModalText"></p>
-            </div>
+        <div class="finance-card glass">
+          <h4>Cash Balance</h4>
+          <p id="cashBalance">₹0</p>
         </div>
-        <hr>
-        <h3>Set Opening Balance</h3>
-        <div style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button onclick="resetFinanceBalance()" class="primary-btn" style="background:#dc3545;">Reset Balance</button>
-            <button onclick="resetMonthlyExpense()" class="primary-btn" style="background:#ff9800;">Reset This Month Expense</button>
-            <button onclick="resetMonthlyProfit()" style="background:#dc3545;color:white;">
-Reset This Month Profit
-</button>
+        <div class="finance-card glass">
+          <h4>Total Balance</h4>
+          <p id="totalBalance">₹0</p>
         </div>
-        <div class="finance-form glass">
-            <input type="number" id="openingBank" placeholder="Opening Bank Balance">
-            <input type="number" id="openingCash" placeholder="Opening Cash Balance">
-            <button onclick="setFinanceOpeningBalance()" class="primary-btn">Set Balance</button>
+        <div class="finance-card glass">
+          <h4>This Month Expense</h4>
+          <p id="monthlyExpense">₹0</p>
         </div>
-        <hr>
-        <h3>Add Transaction</h3>
-        <div class="finance-form glass">
-            <select id="transactionType">
-                <option value="debit">Expense</option>
-                <option value="credit">Income</option>
-            </select>
-            <input type="date" id="txnDate">
-            <select id="paidTo">
-                <option value="">Select Person</option>
-            </select>
-            <select id="category">
-                <option value="salary">Salary</option>
-                <option value="vendor">Vendor Payment</option>
-                <option value="expense">Other Expense</option>
-                <option value="income">Client Payment</option>
-            </select>
-            <select id="paymentMode">
-                <option value="upi">UPI</option>
-                <option value="cash">Cash</option>
-                <option value="netbanking">Netbanking</option>
-            </select>
-            <input type="number" id="amount" placeholder="Amount">
-            <input type="text" id="notes" placeholder="Notes">
-            <button onclick="addFinanceTransaction()" class="primary-btn">Add Transaction</button>
+      </div>
+
+      <!-- Profit card -->
+      <div class="fin-profit-card">
+        <h3>📈 This Month Profit</h3>
+        <p id="monthlyProfit">₹0.00</p>
+        <div class="fin-profit-sub">Income − Expense (Current Month)</div>
+      </div>
+
+      <!-- Note modal -->
+      <div id="noteModal" class="note-modal">
+        <div class="note-modal-content">
+          <span class="note-close" onclick="closeNoteModal()">✖</span>
+          <h3>Transaction Note</h3>
+          <p id="noteModalText"></p>
         </div>
-        <hr>
-        <h3>Transactions</h3>
-        <div class="finance-table-wrapper glass">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Paid To</th>
-                        <th>Category</th>
-                        <th>Mode</th>
-                        <th>Amount</th>
-                        <th>Running Balance</th>
-                        <th>Notes</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="financeTableBody"></tbody>
-            </table>
-        </div>
+      </div>
+
+      <!-- Opening Balance -->
+      <hr class="fin-divider">
+      <h3>Set Opening Balance</h3>
+      <div class="finance-form glass" style="margin-top:14px;">
+        <input type="number" id="openingBank" placeholder="Opening Bank Balance">
+        <input type="number" id="openingCash" placeholder="Opening Cash Balance">
+        <button onclick="setFinanceOpeningBalance()" class="primary-btn">Set Balance</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+        <button onclick="resetFinanceBalance()" class="fin-btn-reset">🗑 Reset Balance</button>
+        <button onclick="resetMonthlyExpense()" class="fin-btn-warn">🔄 Reset Month Expense</button>
+        <button onclick="resetMonthlyProfit()" class="fin-btn-purple">🔄 Reset Month Profit</button>
+      </div>
+
+      <!-- Add Transaction -->
+      <hr class="fin-divider">
+      <h3>Add Transaction</h3>
+      <div class="finance-form glass" style="margin-top:14px;">
+        <select id="transactionType">
+          <option value="debit">Expense</option>
+          <option value="credit">Income</option>
+        </select>
+        <input type="date" id="txnDate">
+        <select id="paidTo"><option value="">Select Person</option></select>
+        <select id="category">
+          <option value="salary">Salary</option>
+          <option value="vendor">Vendor Payment</option>
+          <option value="expense">Other Expense</option>
+          <option value="income">Client Payment</option>
+        </select>
+        <select id="paymentMode">
+          <option value="upi">UPI</option>
+          <option value="cash">Cash</option>
+          <option value="netbanking">Netbanking</option>
+        </select>
+        <input type="number" id="amount" placeholder="Amount">
+        <input type="text" id="notes" placeholder="Notes (optional)">
+        <button onclick="addFinanceTransaction()" class="primary-btn">+ Add Transaction</button>
+      </div>
+
+      <!-- Transactions table -->
+      <hr class="fin-divider">
+      <h3>Transactions</h3>
+      <div class="finance-table-wrapper" style="margin-top:14px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Type</th><th>Paid To</th><th>Category</th>
+              <th>Mode</th><th>Amount</th><th>Running Balance</th><th>Notes</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="financeTableBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section id="leaveSection" class="sub-section">
@@ -535,108 +591,225 @@ Reset Entire ERP
 
     <section id="createInvoice" class="sub-section">
       <h2>Create Invoice</h2>
-      <div class="invoice-company">
-  <h3 id="companyName"></h3>
-  <p id="companyAddress"></p>
-  <p id="companyGST"></p>
-  <p id="companyCIN"></p>
-  <p id="companyEmail"></p>
-</div>
-      <hr>
-      <div class="invoice-top-grid">
-        <div>
-          <h4>Buyer (Bill To)</h4>
-          <select id="customerSelect" style="margin-bottom: 10px; width: 100%;">
-            <option value="">-- Custom / Walk-in Customer --</option>
-          </select>
-          <input id="billName" placeholder="Customer Name" style="width: 100%; margin-bottom: 10px;">
-          <textarea id="billAddress" placeholder="Customer Address" style="width: 100%; margin-bottom: 10px; height: 60px;"></textarea>
-          <input id="billState" placeholder="State (e.g., Karnataka, New Delhi)" style="width: 100%;">
+
+      <div class="inv-company-bar">
+        <div class="inv-company-name" id="companyName"></div>
+        <div class="inv-company-meta" id="companyAddress"></div>
+        <div class="inv-company-meta" id="companyGST"></div>
+        <div class="inv-company-meta" id="companyCIN"></div>
+        <div class="inv-company-meta" id="companyEmail"></div>
+      </div>
+
+      <div class="inv-top-grid">
+        <div class="inv-panel">
+          <div class="inv-panel-title">👤 Buyer (Bill To)</div>
+          <div class="inv-field"><label class="inv-label">Saved Customer</label>
+            <select id="customerSelect"><option value="">— Select Saved Customer —</option></select></div>
+          <div class="inv-field"><label class="inv-label">Customer Name</label>
+            <input id="billName" placeholder="Full name"></div>
+          <div class="inv-field"><label class="inv-label">Customer Address</label>
+            <textarea id="billAddress" placeholder="Street, City, PIN" style="height:72px;resize:vertical;"></textarea></div>
+          <div class="inv-field"><label class="inv-label">State</label>
+            <input id="billState" placeholder="e.g. Karnataka, New Delhi"></div>
         </div>
-        <div>
-          <h4>Invoice Details</h4>
-          <input id="invoiceNumber" placeholder="Invoice No" readonly style="width: 100%; margin-bottom: 10px; background-color: #f4f4f4;">
-          <label style="font-size: 12px; color: #555;">Invoice Date</label>
-          <input type="date" id="invoiceDate" style="width: 100%; margin-bottom: 10px;">
-          <label style="font-size: 12px; color: #555;">Due Date (Optional)</label>
-          <input type="date" id="dueDate" style="width: 100%;">
-          <label style="font-size:12px; color:#555; display:block; margin-top:5px;">Customer Contact No</label>
-          <input type="text" id="invoiceCustomerPhone" readonly style="width:100%; margin-bottom:10px; background:#f4f4f4;">
+        <div class="inv-panel">
+          <div class="inv-panel-title">🧾 Invoice Details</div>
+          <div class="inv-field"><label class="inv-label">Invoice Number</label>
+            <input id="invoiceNumber" placeholder="Auto-generated" readonly class="inv-readonly"></div>
+          <div class="inv-field-row">
+            <div class="inv-field"><label class="inv-label">Invoice Date</label>
+              <input type="date" id="invoiceDate"></div>
+            <div class="inv-field"><label class="inv-label">Due Date <span class="inv-optional">(Optional)</span></label>
+              <input type="date" id="dueDate"></div>
+          </div>
+          <div class="inv-field"><label class="inv-label">Customer Contact No</label>
+            <input type="text" id="invoiceCustomerPhone" placeholder="Auto-filled" readonly class="inv-readonly"></div>
         </div>
       </div>
-      <hr>
-      <table id="invoiceItemsTable" border="1" width="100%">
-        <thead>
-          <tr>
-            <th>Sl</th>
-            <th>Description of Services/Items</th>
-            <th>HSN/SAC</th>
-            <th>Qty</th>
-            <th>Rate</th>
-            <th>Amount</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="invoiceItemsBody"></tbody>
-      </table>
-      <br>
-      <button onclick="addInvoiceRow()">Add Item</button>
-      <hr>
-      <h4>Tax Type</h4>
-      <label><input type="radio" name="taxType" value="none" checked> No Tax</label>
-      <label><input type="radio" name="taxType" value="gst"> GST 18%</label>
-      <label><input type="radio" name="taxType" value="cgst_sgst"> CGST 9% + SGST 9%</label>
-      <hr>
-      <div class="invoice-totals">
-        Subtotal: ₹ <span id="subtotalDisplay">0.00</span><br>
-        Tax: ₹ <span id="taxDisplay">0.00</span><br>
-        Total: ₹ <span id="totalDisplay">0.00</span><br><br>
-        Amount in Words:
-        <div id="amountWords"></div>
+
+      <div class="inv-section-title">📦 Items / Services</div>
+      <div class="inv-table-wrap">
+        <table id="invoiceItemsTable">
+          <thead><tr>
+            <th style="width:50px;">Sl</th>
+            <th>Description of Services / Items</th>
+            <th style="width:110px;">HSN/SAC</th>
+            <th style="width:80px;">Qty</th>
+            <th style="width:110px;">Rate (₹)</th>
+            <th style="width:120px;">Amount (₹)</th>
+            <th style="width:80px;">Action</th>
+          </tr></thead>
+          <tbody id="invoiceItemsBody"></tbody>
+        </table>
       </div>
-      <hr>
-      <button onclick="saveInvoiceRecord()">Save Invoice</button>
-      <br><br>
+      <div style="margin-top:12px;">
+        <button onclick="addInvoiceRow()" class="inv-add-btn">+ Add Item</button>
+      </div>
+
+      <div class="inv-bottom-grid">
+        <div class="inv-panel inv-tax-panel">
+          <div class="inv-panel-title">🏷️ Tax Type</div>
+          <label class="inv-radio-label"><input type="radio" name="taxType" value="none" checked><span class="inv-radio-box">No Tax</span></label>
+          <label class="inv-radio-label"><input type="radio" name="taxType" value="gst"><span class="inv-radio-box">GST 18%</span></label>
+          <label class="inv-radio-label"><input type="radio" name="taxType" value="cgst_sgst"><span class="inv-radio-box">CGST 9% + SGST 9%</span></label>
+        </div>
+        <div class="inv-totals-panel">
+          <div class="inv-total-row"><span class="inv-total-label">Subtotal</span><span class="inv-total-value">₹ <span id="subtotalDisplay">0.00</span></span></div>
+          <div class="inv-total-row"><span class="inv-total-label">Tax</span><span class="inv-total-value">₹ <span id="taxDisplay">0.00</span></span></div>
+          <div class="inv-total-row inv-total-grand"><span class="inv-total-label">Total</span><span class="inv-total-value">₹ <span id="totalDisplay">0.00</span></span></div>
+          <div class="inv-words-row">
+            <span class="inv-words-label">Amount in Words</span>
+            <span id="amountWords" class="inv-words-value"></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;">
+        <button onclick="saveInvoiceRecord()" class="primary-btn">💾 Save Invoice</button>
+      </div>
     </section>
 
     <section id="allInvoices" class="sub-section">
-      <h2>All Invoices</h2>
-      <div style="display: flex; gap: 15px; margin-bottom: 15px; max-width: 900px;">
-          <input type="text" id="invoiceSearchInput" placeholder="Search by Invoice No or Customer Name..." oninput="filterInvoices()" style="flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-          <select id="invoiceTaxFilter" onchange="filterInvoices()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-            <option value="All">All Tax Types</option>
-            <option value="gst">IGST (18%)</option>
-            <option value="cgst_sgst">CGST + SGST</option>
-            <option value="none">Non-GST</option>
-          </select>
-          <select id="invoiceStatusFilter" onchange="filterInvoices()" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-              <option value="All">All Statuses</option>
-              <option value="Draft">Draft</option>
-              <option value="Pending">Pending</option>
-              <option value="Sent">Sent</option>
-              <option value="Paid">Paid</option>
-              <option value="Cancelled">Cancelled</option>
-              <option value="Overdue">Overdue</option>
-          </select>
+      <h2>📄 All Invoices</h2>
+      <div class="inv-filter-bar">
+        <input type="text" id="invoiceSearchInput" placeholder="🔍 Search by Invoice No or Customer..." oninput="filterInvoices()" style="flex:2;">
+        <select id="invoiceTaxFilter" onchange="filterInvoices()">
+          <option value="All">All Tax Types</option>
+          <option value="gst">IGST (18%)</option>
+          <option value="cgst_sgst">CGST + SGST</option>
+          <option value="none">Non-GST</option>
+        </select>
+        <select id="invoiceStatusFilter" onchange="filterInvoices()">
+          <option value="All">All Statuses</option>
+          <option value="Draft">Draft</option>
+          <option value="Pending">Pending</option>
+          <option value="Sent">Sent</option>
+          <option value="Paid">Paid</option>
+          <option value="Cancelled">Cancelled</option>
+          <option value="Overdue">Overdue</option>
+        </select>
       </div>
-      <table border="1" width="100%" id="invoiceHistoryTable">
+      <div class="finance-table-wrapper">
+        <table id="invoiceHistoryTable">
+          <thead>
+            <tr>
+              <th>Invoice No</th><th>Customer</th><th>Date</th>
+              <th>Total (₹)</th><th>Tax Type</th><th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==============================
+         DOCUMENTS SECTION
+         ============================== -->
+    <section id="documentsSection" class="sub-section">
+      <h2>Employee Documents</h2>
+
+      <!-- Summary cards -->
+      <div class="dashboard-grid" style="margin-bottom:25px;">
+        <div class="card" style="border-top:4px solid #1f3c88;">
+          <h3>Total Documents</h3>
+          <p id="docCardTotal">0</p>
+        </div>
+        <div class="card" style="border-top:4px solid #4caf50;">
+          <h3>Employees with Docs</h3>
+          <p id="docCardEmps">0</p>
+        </div>
+        <div class="card" style="border-top:4px solid #ff9800;">
+          <h3>Storage Used</h3>
+          <p id="docCardSize">0 MB</p>
+        </div>
+        <div class="card" style="border-top:4px solid #9c27b0;">
+          <h3>Most Common Type</h3>
+          <p id="docCardTopType" style="font-size:16px;">-</p>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="doc-filter-bar">
+        <select id="docEmpFilter" onchange="renderDocumentCards(); updateDocSummaryCards();">
+          <option value="">All Employees</option>
+        </select>
+        <select id="docTypeFilter" onchange="renderDocumentCards(); updateDocSummaryCards();">
+          <option value="">All Document Types</option>
+          <option>Aadhar Card</option>
+          <option>PAN Card</option>
+          <option>Passport</option>
+          <option>Driving Licence</option>
+          <option>Offer Letter</option>
+          <option>Experience Letter</option>
+          <option>Relieving Letter</option>
+          <option>Bank Passbook</option>
+          <option>Salary Slip</option>
+          <option>Medical Certificate</option>
+          <option>Police Verification</option>
+          <option>Other</option>
+        </select>
+        <button class="doc-upload-btn" onclick="openDocUploadModal('')">&#8679; Upload Document</button>
+      </div>
+
+      <!-- Document cards grouped by employee -->
+      <div id="docCardsContainer"></div>
+    </section>
+
+
+    <!-- ===== ATTENDANCE SECTION ===== -->
+    <section id="attendanceSection" class="sub-section">
+      <h2>Attendance Tracker</h2>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px;">
+        <select id="attendanceMonthSelect" onchange="loadAttendanceTable();loadAttendanceSummaryCards();loadAttendanceMonthlySummary();"></select>
+        <select id="attendanceEmployeeSelect" onchange="loadAttendanceTable();loadAttendanceSummaryCards();"></select>
+        <select id="attendanceStatusFilter" onchange="loadAttendanceTable();loadAttendanceSummaryCards();">
+          <option value="">All Statuses</option>
+          <option value="Present">Present</option>
+          <option value="Absent">Absent</option>
+          <option value="Half Day">Half Day</option>
+          <option value="Holiday">Holiday</option>
+        </select>
+        <button onclick="openMarkAttendanceModal()" style="background:#6366f1;color:white;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:600;">+ Mark Attendance</button>
+        <button onclick="bulkMarkAttendance('Present')" style="background:#16a34a;color:white;border:none;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:600;">&#10003; Bulk Present</button>
+        <button onclick="bulkMarkAttendance('Absent')" style="background:#dc2626;color:white;border:none;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:600;">&#10007; Bulk Absent</button>
+        <button onclick="exportAttendanceCSV()" style="background:#475569;color:white;border:none;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:600;">&#8681; Export CSV</button>
+      </div>
+
+      <div class="dashboard-grid" style="margin-bottom:25px;">
+        <div class="card" style="border-top:3px solid #6366f1;">
+          <h3>Total Records</h3><p id="attCardTotal">0</p>
+        </div>
+        <div class="card" style="border-top:3px solid #22c55e;">
+          <h3>Present</h3><p id="attCardPresent">0</p>
+        </div>
+        <div class="card" style="border-top:3px solid #ef4444;">
+          <h3>Absent</h3><p id="attCardAbsent">0</p>
+        </div>
+        <div class="card" style="border-top:3px solid #f59e0b;">
+          <h3>Half Day</h3><p id="attCardHalfDay">0</p>
+        </div>
+      </div>
+
+      <h3>Attendance Log</h3>
+      <table>
         <thead>
-          <tr>
-            <th>Invoice No</th>
-            <th>Customer</th>
-            <th>Date</th>
-            <th>Total (₹)</th>
-            <th>Tax Type</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
+          <tr><th>Date</th><th>Employee</th><th>Status</th><th>Notes</th><th>Action</th></tr>
         </thead>
-        <tbody>
-        </tbody>
+        <tbody id="attendanceTableBody"></tbody>
+      </table>
+
+      <h3 style="margin-top:30px;">Monthly Summary</h3>
+      <table>
+        <thead>
+          <tr><th>Employee</th><th>Present</th><th>Absent</th><th>Half Day</th><th>Total</th><th>Attendance %</th></tr>
+        </thead>
+        <tbody id="attSummaryBody"></tbody>
       </table>
     </section>
 
   </main>
+  </div><!-- end main-wrapper -->
 </div>
 
 <div id="paymentModal" class="note-modal">
@@ -702,18 +875,87 @@ Reset Entire ERP
     </div>
 </div>
 
+<!-- DOCUMENT UPLOAD MODAL -->
+<div id="docUploadModal" class="custom-modal">
+  <div class="custom-modal-content" style="max-width:480px;">
+    <h3 style="margin-top:0;">Upload Document</h3>
+
+    <label style="font-size:13px;font-weight:bold;">Employee</label>
+    <select id="docUploadEmpSelect" style="width:100%;margin-bottom:14px;padding:8px;border-radius:5px;border:1px solid #ccc;"></select>
+
+    <label style="font-size:13px;font-weight:bold;">Document Type</label>
+    <select id="docTypeSelect" style="width:100%;margin-bottom:14px;padding:8px;border-radius:5px;border:1px solid #ccc;">
+      <option>Aadhar Card</option>
+      <option>PAN Card</option>
+      <option>Passport</option>
+      <option>Driving Licence</option>
+      <option>Offer Letter</option>
+      <option>Experience Letter</option>
+      <option>Relieving Letter</option>
+      <option>Bank Passbook</option>
+      <option>Salary Slip</option>
+      <option>Medical Certificate</option>
+      <option>Police Verification</option>
+      <option>Other</option>
+    </select>
+
+    <label style="font-size:13px;font-weight:bold;">File <span style="font-weight:normal;color:#888;">(PDF, JPG, PNG, Word — max 10 MB)</span></label>
+    <input type="file" id="docFileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+      onchange="previewDocFile()"
+      style="width:100%;margin-bottom:10px;padding:8px;border:1px solid #ccc;border-radius:5px;box-sizing:border-box;">
+
+    <div id="docUploadPreview" style="display:none;background:#f9f9f9;border:1px solid #ddd;border-radius:6px;padding:10px;margin-bottom:12px;"></div>
+
+    <label style="font-size:13px;font-weight:bold;">Notes <span style="font-weight:normal;color:#888;">(optional)</span></label>
+    <input type="text" id="docNotes" placeholder="e.g. Verified on 12 Jan 2025"
+      style="width:100%;margin-bottom:20px;padding:8px;border-radius:5px;border:1px solid #ccc;box-sizing:border-box;">
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button onclick="closeDocUploadModal()" style="background:#e0e0e0;border:none;padding:9px 18px;border-radius:5px;cursor:pointer;">Cancel</button>
+      <button onclick="saveDocument()" style="background:#1f3c88;color:white;border:none;padding:9px 18px;border-radius:5px;cursor:pointer;font-weight:bold;">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- MARK ATTENDANCE MODAL -->
+<div id="markAttendanceModal" class="custom-modal">
+  <div class="custom-modal-content">
+    <h3 style="margin-top:0;margin-bottom:16px;">Mark Attendance</h3>
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Employee</label>
+    <select id="markAttEmpSelect" style="width:100%;margin-bottom:14px;"></select>
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Date</label>
+    <input type="date" id="markAttDate" style="width:100%;margin-bottom:14px;box-sizing:border-box;">
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Status</label>
+    <select id="markAttStatus" style="width:100%;margin-bottom:14px;">
+      <option value="Present">Present</option>
+      <option value="Absent">Absent</option>
+      <option value="Half Day">Half Day</option>
+      <option value="Holiday">Holiday</option>
+    </select>
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Notes (optional)</label>
+    <input type="text" id="markAttNotes" placeholder="e.g. Late arrival, Early leave..." style="width:100%;margin-bottom:20px;box-sizing:border-box;">
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button onclick="closeMarkAttendanceModal()">Cancel</button>
+      <button onclick="saveAttendanceRecord()" style="background:#6366f1;color:white;border:none;padding:9px 18px;border-radius:8px;font-weight:600;cursor:pointer;">Save</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 
 <script src="storage.js"></script>
+<script src="attendance.js"></script>
+
 <script src="employees.js"></script>
 <script src="finance.js"></script>
 
 <script src="invoice.js"></script>
 
 <script src="leave.js"></script>
+<script src="documents.js"></script>
 <script src="settings.js"></script>
 
 <script src="app.js"></script>

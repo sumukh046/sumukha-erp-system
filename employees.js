@@ -1,59 +1,145 @@
+// Called when the "Upload Card" toggle is flipped
+function toggleAadharUpload() {
+  const toggle  = document.getElementById("aadharToggle");
+  const fileEl  = document.getElementById("aadharFile");
+  const preview = document.getElementById("aadharPreview");
+
+  if (toggle.checked) {
+    fileEl.style.display = "block";
+    fileEl.click();
+
+    fileEl.onchange = function() {
+      const file = fileEl.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        if (!preview) return;
+        const isImage = file.type.startsWith("image/");
+        preview.style.display = "block";
+        preview.innerHTML = isImage
+          ? `<img src="${e.target.result}" style="max-width:180px;max-height:120px;border-radius:6px;border:1px solid #ccc;margin-top:6px;">`
+          : `<div style="padding:8px;background:#f0f4ff;border-radius:6px;border:1px solid #c5d0e8;font-size:13px;margin-top:6px;">
+               <strong>${file.name}</strong> ready to upload
+             </div>`;
+      };
+      reader.readAsDataURL(file);
+    };
+  } else {
+    fileEl.style.display = "none";
+    fileEl.value = "";
+    if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
+  }
+}
+
+// Saves aadhar file to erpDB.documents and immediately refreshes Documents section
+function saveAadharDocument(empId, empName, file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const db = JSON.parse(localStorage.getItem("erpDB")) || {};
+    if (!db.documents) db.documents = [];
+
+    // Remove previous Aadhar upload for this employee (no duplicates)
+    db.documents = db.documents.filter(
+      d => !(d.employeeId === empId && d.docType === "Aadhar Card")
+    );
+
+    db.documents.push({
+      id:           "DOC-" + Date.now(),
+      employeeId:   empId,
+      employeeName: empName,
+      docType:      "Aadhar Card",
+      fileName:     file.name,
+      fileType:     file.type,
+      fileSize:     file.size,
+      base64:       e.target.result,
+      notes:        "Uploaded from Add Employee form",
+      uploadedAt:   new Date().toISOString()
+    });
+
+    localStorage.setItem("erpDB", JSON.stringify(db));
+    window.db = db;
+
+    // Live-refresh Documents section without a page reload
+    if (typeof renderDocumentCards   === "function") renderDocumentCards();
+    if (typeof updateDocSummaryCards === "function") updateDocSummaryCards();
+
+    showNotification("Aadhar card saved to Documents", "success");
+  };
+  reader.readAsDataURL(file);
+}
+
 function allowOnlyNumbers(input) {
   input.value = input.value.replace(/[^0-9]/g, "");
 }
 
 function addEmployee() {
-  const firstName = document.getElementById("firstName");
-  const lastName = document.getElementById("lastName");
-  const middleName = document.getElementById("middleName");
-  const role = document.getElementById("role");
-  const age = document.getElementById("age");
-  const gender = document.getElementById("gender");
-  const mobile = document.getElementById("mobile");
+  const firstName     = document.getElementById("firstName");
+  const lastName      = document.getElementById("lastName");
+  const middleName    = document.getElementById("middleName");
+  const role          = document.getElementById("role");
+  const age           = document.getElementById("age");
+  const gender        = document.getElementById("gender");
+  const mobile        = document.getElementById("mobile");
   const guardianPhone = document.getElementById("guardianPhone");
-  const address = document.getElementById("address");
-  const nativePlace = document.getElementById("nativePlace");
-  const languages = document.getElementById("languages");
-  const aadhar = document.getElementById("aadhar");
-  const aadharVerified = document.getElementById("aadharVerified");
+  const address       = document.getElementById("address");
+  const nativePlace   = document.getElementById("nativePlace");
+  const languages     = document.getElementById("languages");
+  const aadhar        = document.getElementById("aadhar");
+  const aadharVerified= document.getElementById("aadharVerified");
+  const fileEl        = document.getElementById("aadharFile");
 
   if (!firstName.value || !lastName.value || !role.value) {
     alert("Fill required fields");
     return;
   }
 
-  db.employees.push({
-    
-    id: Date.now(),
-    firstName: firstName.value,
-    middleName: middleName.value,
-    lastName: lastName.value,
-    age: age.value,
-    gender: gender.value,
-    mobile: mobile.value,
-    guardianPhone: guardianPhone.value,
-    address: address.value,
-    nativePlace: nativePlace.value,
-    languages: languages.value,
-    role: role.value,
-    aadhar: aadhar.value,
-    aadharVerified: aadharVerified.value,
-    status: "Active",
-    workPlace: "",
-    createdAt: new Date().toLocaleString(),
-    salaryConfig: {
-    defaultDayRate: 0,
-    defaultShiftRate: 0
-}
-  });
-  showNotification("👤 Employee added successfully","success");
+  const newEmpId = Date.now();
+  const empName  = firstName.value + " " + lastName.value;
 
+  db.employees.push({
+    id:           newEmpId,
+    firstName:    firstName.value,
+    middleName:   middleName.value,
+    lastName:     lastName.value,
+    age:          age.value,
+    gender:       gender.value,
+    mobile:       mobile.value,
+    guardianPhone:guardianPhone.value,
+    address:      address.value,
+    nativePlace:  nativePlace.value,
+    languages:    languages.value,
+    role:         role.value,
+    aadhar:       aadhar.value,
+    aadharVerified: aadharVerified.value,
+    status:       "Active",
+    workPlace:    "",
+    createdAt:    new Date().toLocaleString(),
+    salaryConfig: { defaultDayRate: 0, defaultShiftRate: 0 }
+  });
+
+  showNotification("👤 Employee added successfully", "success");
   saveDB();
   loadEmployees();
   loadStatusTable();
   updateDashboard();
 
-  document.querySelectorAll("input, textarea").forEach(el => el.value = "");
+  // If an Aadhar file was selected, save it to Documents now
+  const toggle = document.getElementById("aadharToggle");
+  if (toggle && toggle.checked && fileEl && fileEl.files[0]) {
+    saveAadharDocument(newEmpId, empName, fileEl.files[0]);
+  }
+
+  // Reset the form
+  document.querySelectorAll("#addEmployee input, #addEmployee textarea, #addEmployee select").forEach(el => {
+    if (el.type === "checkbox") { el.checked = false; }
+    else if (el.type === "file") { el.value = ""; }
+    else { el.value = ""; }
+  });
+  // Hide file input and preview after reset
+  if (fileEl) fileEl.style.display = "none";
+  const preview = document.getElementById("aadharPreview");
+  if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
 }
 
 function deleteEmployee(id) {
@@ -301,9 +387,8 @@ function closeProfile() {
 /* DOWNLOAD SINGLE EMPLOYEE */
 function downloadSingleEmployee(id) {
 
-    const employees = (window.db && window.db.employees) 
-        ? window.db.employees 
-        : (JSON.parse(localStorage.getItem("erpDB")) || { employees: [] }).employees;
+    const db = JSON.parse(localStorage.getItem("erpDB")) || { employees: [] };
+    const employees = db.employees;
 
     const emp = employees.find(e => e.id === id);
 
@@ -483,4 +568,61 @@ function downloadPDF() {
   win.document.write(content);
   win.document.close();
   win.print();
+}
+// ===============================
+// LOAD ALL EMPLOYEES TABLE
+// ===============================
+function loadEmployees() {
+  const table = document.getElementById("empTable");
+  if (!table) return;
+
+  // Always read fresh from localStorage so we get the latest data
+  const dbData = JSON.parse(localStorage.getItem("erpDB")) || {};
+  const employees = dbData.employees || [];
+
+  table.innerHTML = `
+    <tr>
+      <th>Name</th>
+      <th>Role</th>
+      <th>Mobile</th>
+      <th>Status</th>
+      <th>Aadhar</th>
+      <th>Registered On</th>
+      <th>Actions</th>
+    </tr>
+  `;
+
+  if (employees.length === 0) {
+    table.innerHTML += `<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">No employees added yet.</td></tr>`;
+    return;
+  }
+
+  employees.forEach(emp => {
+    let statusClass = "";
+    if      (emp.status === "Working")       statusClass = "status-working";
+    else if (emp.status === "Active")        statusClass = "status-active";
+    else if (emp.status === "On Leave")      statusClass = "status-leave";
+    else if (emp.status === "Left Company")  statusClass = "status-left";
+    else if (emp.status === "Pending")       statusClass = "status-pending";
+
+    const verifiedBadge = emp.aadharVerified === "Yes"
+      ? ' <span style="color:#4caf50;font-size:11px;font-weight:bold;">✔ Verified</span>'
+      : '';
+
+    table.innerHTML += `
+      <tr>
+        <td><strong>${emp.firstName} ${emp.middleName ? emp.middleName + " " : ""}${emp.lastName}</strong></td>
+        <td>${emp.role || "-"}</td>
+        <td>${emp.mobile || "-"}</td>
+        <td><span class="${statusClass}">${emp.status}</span></td>
+        <td>${emp.aadhar || "-"}${verifiedBadge}</td>
+        <td>${emp.createdAt || "-"}</td>
+        <td style="white-space:nowrap;">
+          <button onclick="viewEmployee(${emp.id})" style="margin:2px;">View</button>
+          <button onclick="downloadSingleEmployee(${emp.id})" style="margin:2px;">PDF</button>
+          <button onclick="deleteEmployee(${emp.id})" style="background:#dc3545;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;margin:2px;">Delete</button>
+        </td>
+      </tr>
+    `;
+  });
 }
