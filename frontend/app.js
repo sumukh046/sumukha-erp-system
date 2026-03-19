@@ -1,7 +1,60 @@
 // ===============================
-// CONFIG — change this if your backend runs elsewhere
+// FIREBASE SETUP
 // ===============================
-const API = 'http://localhost:5000/api';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+    getFirestore, collection, doc,
+    addDoc, getDoc, getDocs, updateDoc, deleteDoc,
+    query, where, orderBy, setDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyBnohPOjGT5Cq1xTW0Rruxok89JwsvEyjU",
+    authDomain: "sumukha-erp.firebaseapp.com",
+    projectId: "sumukha-erp",
+    storageBucket: "sumukha-erp.firebasestorage.app",
+    messagingSenderId: "927625460940",
+    appId: "1:927625460940:web:bc09a6fe6b39cc2b55d669"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
+// ── Firestore helpers ──────────────────────────────────────
+const col  = name => collection(db, name);
+const docRef = (name, id) => doc(db, name, id);
+
+async function getAll(colName) {
+    const snap = await getDocs(col(colName));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function getById(colName, id) {
+    const snap = await getDoc(docRef(colName, id));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+async function addItem(colName, data) {
+    data.createdAt = serverTimestamp();
+    const ref = await addDoc(col(colName), data);
+    return { id: ref.id, ...data };
+}
+
+async function updateItem(colName, id, data) {
+    data.updatedAt = serverTimestamp();
+    await updateDoc(docRef(colName, id), data);
+    return { id, ...data };
+}
+
+async function deleteItem(colName, id) {
+    await deleteDoc(docRef(colName, id));
+}
+
+async function queryItems(colName, field, op, value) {
+    const q    = query(col(colName), where(field, op, value));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
 
 // ===============================
 // AUTH GUARD
@@ -15,7 +68,6 @@ if (localStorage.getItem('erpUser') !== 'loggedIn') {
 // ===============================
 function showSection(id) {
     document.querySelectorAll('.sub-section').forEach(sec => sec.classList.remove('active'));
-    // Close both sidebar submenus when navigating to non-invoice/non-employee sections
     if (!['addEmployee','allEmployees','employeeStatus','documentsSection'].includes(id)) {
         const empMenu = document.getElementById('employeeMenu');
         if (empMenu) empMenu.style.display = 'none';
@@ -60,7 +112,6 @@ function showSection(id) {
     if (id === 'salarySection') {
         loadSalaryEmployees();
         loadSalaryMonths();
-        // Reset salary UI so old data doesn't linger
         const empSel = document.getElementById('salaryEmployeeSelect');
         if (empSel) empSel.value = '';
         const sCard = document.getElementById('salarySummaryCard');
@@ -120,11 +171,20 @@ function toggleAadharUpload() {
     if (!fileInput || !toggle) return;
     if (toggle.checked) {
         fileInput.style.display = 'block';
-        fileInput.click(); // auto-open file picker
+        fileInput.click();
     } else {
         fileInput.style.display = 'none';
         fileInput.value = '';
     }
+}
+
+function toBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 // ===============================
@@ -132,22 +192,17 @@ function toggleAadharUpload() {
 // ===============================
 async function updateDashboard() {
     try {
-        const [empRes, invRes, custRes] = await Promise.all([
-            fetch(`${API}/employees`),
-            fetch(`${API}/invoices`),
-            fetch(`${API}/customers`)
+        const [employees, invoices, customers] = await Promise.all([
+            getAll('employees'),
+            getAll('invoices'),
+            getAll('customers')
         ]);
-        const employees  = await empRes.json();
-        const invoices   = await invRes.json();
-        const customers  = await custRes.json();
 
-        // Employee stats
         document.getElementById('dashEmp').innerText     = employees.length;
         document.getElementById('dashWorking').innerText = employees.filter(e => e.status === 'Working').length;
         document.getElementById('dashLeave').innerText   = employees.filter(e => e.status === 'On Leave').length;
         document.getElementById('dashLeft').innerText    = employees.filter(e => e.status === 'Left Company').length;
 
-        // Invoice stats
         let totalRevenue = 0, pendingAmount = 0, draftCount = 0;
         let paid = 0, pending = 0, overdue = 0, draft = 0;
         invoices.forEach(inv => {
@@ -161,14 +216,11 @@ async function updateDashboard() {
         document.getElementById('draftCount').innerText    = draftCount;
         document.getElementById('totalInvoices').innerText = invoices.length;
 
-        // Customer stats
-        const withGST    = customers.filter(c => c.gst && c.gst.trim()).length;
-        const withoutGST = customers.length - withGST;
+        const withGST = customers.filter(c => c.gst && c.gst.trim()).length;
         document.getElementById('totalCustomers').innerText    = customers.length;
         document.getElementById('customersWithGST').innerText  = withGST;
-        document.getElementById('customersWithoutGST').innerText = withoutGST;
+        document.getElementById('customersWithoutGST').innerText = customers.length - withGST;
 
-        // Top billing customer
         const revByCustomer = {};
         invoices.forEach(inv => {
             if (inv.status === 'Paid' && inv.customerName) {
@@ -182,7 +234,6 @@ async function updateDashboard() {
         document.getElementById('topCustomer').innerText        = topCustomer;
         document.getElementById('topCustomerRevenue').innerText = '₹ ' + topRevenue2.toFixed(2);
 
-        // Revenue chart
         const ctx = document.getElementById('revenueChart');
         if (ctx) {
             if (window.revenueChartInstance) window.revenueChartInstance.destroy();
@@ -203,9 +254,7 @@ async function updateDashboard() {
                 }
             });
         }
-    } catch (err) {
-        console.error('Dashboard error:', err);
-    }
+    } catch (err) { console.error('Dashboard error:', err); }
 }
 
 // ===============================
@@ -217,7 +266,6 @@ async function addEmployee() {
 
     const fileInput = document.getElementById('aadharFile');
     let aadharFile  = '';
-
     if (fileInput && fileInput.files[0]) {
         aadharFile = await toBase64(fileInput.files[0]);
     }
@@ -238,39 +286,29 @@ async function addEmployee() {
         aadhar:         document.getElementById('aadhar').value.trim(),
         aadharVerified: document.getElementById('aadharVerified').value,
         aadharFile,
-        status: 'Active'
+        status: 'Active',
+        workPlace: ''
     };
 
     try {
-        const res = await fetch(`${API}/employees`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const newEmp = await res.json();
+        const newEmp = await addItem('employees', payload);
 
-        // ✅ FIX: If aadhar file was uploaded, also save it to documents collection
+        // Also save aadhar file to documents collection
         if (aadharFile && fileInput && fileInput.files[0]) {
             const file = fileInput.files[0];
-            await fetch(`${API}/documents`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    employeeId:   newEmp._id,
-                    employeeName: `${newEmp.firstName} ${newEmp.lastName || ''}`.trim(),
-                    docType:      'Aadhar Card',
-                    fileName:     file.name,
-                    fileType:     file.type,
-                    fileSize:     file.size,
-                    base64:       aadharFile,
-                    notes:        'Uploaded during employee registration'
-                })
+            await addItem('documents', {
+                employeeId:   newEmp.id,
+                employeeName: `${newEmp.firstName} ${newEmp.lastName || ''}`.trim(),
+                docType:      'Aadhar Card',
+                fileName:     file.name,
+                fileType:     file.type,
+                fileSize:     file.size,
+                base64:       aadharFile,
+                notes:        'Uploaded during employee registration'
             });
         }
 
         showNotification('✅ Employee added successfully', 'success');
-        // Clear form
         ['firstName','middleName','lastName','age','mobile','guardianPhone',
          'guardianName','nativePlace','languages','address','aadhar'].forEach(id => {
             const el = document.getElementById(id);
@@ -286,15 +324,6 @@ async function addEmployee() {
     }
 }
 
-function toBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
 // ===============================
 // EMPLOYEES — LIST
 // ===============================
@@ -302,18 +331,13 @@ async function loadEmployees() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">Loading...</td></tr>';
-
     try {
-        const res       = await fetch(`${API}/employees`);
-        const employees = await res.json();
-
+        const employees = await getAll('employees');
         tbody.innerHTML = '';
-
         if (employees.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">No employees found.</td></tr>';
             return;
         }
-
         employees.forEach(emp => {
             tbody.innerHTML += `
                 <tr>
@@ -335,67 +359,51 @@ async function loadEmployees() {
 // ===============================
 async function downloadCSV() {
     try {
-        const res       = await fetch(`${API}/employees`);
-        const employees = await res.json();
-
+        const employees = await getAll('employees');
         let csv = 'First Name,Last Name,Role,Mobile,Status,Aadhar,Native Place,Languages\n';
         employees.forEach(e => {
             csv += `"${e.firstName}","${e.lastName || ''}","${e.role || ''}","${e.mobile || ''}","${e.status || ''}","${e.aadhar || ''}","${e.nativePlace || ''}","${e.languages || ''}"\n`;
         });
-
         const blob = new Blob([csv], { type: 'text/csv' });
         const a    = document.createElement('a');
         a.href     = URL.createObjectURL(blob);
         a.download = 'employees.csv';
         a.click();
         showNotification('📥 CSV downloaded', 'success');
-    } catch (err) {
-        showNotification('❌ Failed to download CSV', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to download CSV', 'warning'); }
 }
 
 async function downloadPDF() {
     try {
-        const res       = await fetch(`${API}/employees`);
-        const employees = await res.json();
-
+        const employees = await getAll('employees');
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.text('Sumukha ERP — Employee List', 105, 15, { align: 'center' });
-
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-
         let y = 28;
         const headers = ['Name', 'Role', 'Mobile', 'Status'];
         const colX    = [15, 75, 120, 160];
-
-        // Header row
         doc.setFont('helvetica', 'bold');
         headers.forEach((h, i) => doc.text(h, colX[i], y));
         y += 2;
         doc.setLineWidth(0.3);
         doc.line(15, y, 195, y);
         y += 5;
-
         doc.setFont('helvetica', 'normal');
         employees.forEach(emp => {
             if (y > 275) { doc.addPage(); y = 20; }
             doc.text(`${emp.firstName} ${emp.lastName || ''}`, colX[0], y);
-            doc.text(emp.role     || '-', colX[1], y);
-            doc.text(emp.mobile   || '-', colX[2], y);
-            doc.text(emp.status   || '-', colX[3], y);
+            doc.text(emp.role   || '-', colX[1], y);
+            doc.text(emp.mobile || '-', colX[2], y);
+            doc.text(emp.status || '-', colX[3], y);
             y += 7;
         });
-
         doc.save('employees.pdf');
         showNotification('📥 PDF downloaded', 'success');
-    } catch (err) {
-        showNotification('❌ Failed to download PDF', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to download PDF', 'warning'); }
 }
 
 // ===============================
@@ -404,67 +412,48 @@ async function downloadPDF() {
 async function loadStatusTable() {
     const table = document.getElementById('statusTable');
     if (!table) return;
-
     table.innerHTML = `
-        <thead>
-            <tr>
-                <th>NAME</th>
-                <th>STATUS</th>
-                <th>CHANGE</th>
-                <th>WORKING DETAILS</th>
-            </tr>
-        </thead>
+        <thead><tr><th>NAME</th><th>STATUS</th><th>CHANGE</th><th>WORKING DETAILS</th></tr></thead>
         <tbody id="statusTableBody"></tbody>
     `;
-
     const tbody = document.getElementById('statusTableBody');
-
     try {
-        const res       = await fetch(`${API}/employees`);
-        const employees = await res.json();
-
+        const employees = await getAll('employees');
         if (employees.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:20px;">No employees found.</td></tr>`;
             return;
         }
-
         employees.forEach(emp => {
             const statusOptions = ['Active', 'Working', 'On Leave', 'Left Company', 'Pending'];
             const optionsHTML   = statusOptions.map(s =>
                 `<option value="${s}" ${emp.status === s ? 'selected' : ''}>${s}</option>`
             ).join('');
-
             const workingDetail = (emp.status === 'Working' && emp.workPlace && emp.workPlace.trim())
                 ? `<span class="work-location-badge">📍 ${emp.workPlace}</span>`
                 : `<span style="color:#bbb;">—</span>`;
-
             tbody.innerHTML += `
                 <tr>
                     <td><strong>${emp.firstName} ${emp.lastName || ''}</strong></td>
                     <td><span class="status-badge status-${(emp.status || '').toLowerCase().replace(/ /g, '-')}">${emp.status || 'Active'}</span></td>
                     <td>
-                        <select onchange="handleStatusChange(event, '${emp._id}', this)"
+                        <select onchange="handleStatusChange(event, '${emp.id}', this)"
                             style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;font-size:13px;cursor:pointer;">
                             ${optionsHTML}
                         </select>
                     </td>
-                    <td id="workDetail-${emp._id}">${workingDetail}</td>
+                    <td id="workDetail-${emp.id}">${workingDetail}</td>
                 </tr>
             `;
-
-            // Track the last confirmed good value on the select
             setTimeout(() => {
-                const sel = document.querySelector(`select[onchange*="${emp._id}"]`);
+                const sel = document.querySelector(`select[onchange*="${emp.id}"]`);
                 if (sel) sel.dataset.lastGood = emp.status || 'Active';
             }, 0);
         });
     } catch (err) {
-        console.error('Status table error:', err);
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#c00;padding:20px;">⚠ Could not connect to server.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#c00;padding:20px;">⚠ Could not load employees.</td></tr>`;
     }
 }
 
-// Intercept status dropdown change
 function handleStatusChange(event, empId, selectEl) {
     const newStatus = selectEl.value;
     if (newStatus === 'Working') {
@@ -474,11 +463,9 @@ function handleStatusChange(event, empId, selectEl) {
     }
 }
 
-// Animated workplace modal
 function showWorkplaceModal(empId, selectEl) {
     const existing = document.getElementById('workplaceModalOverlay');
     if (existing) existing.remove();
-
     const overlay = document.createElement('div');
     overlay.id = 'workplaceModalOverlay';
     overlay.innerHTML = `
@@ -488,7 +475,7 @@ function showWorkplaceModal(empId, selectEl) {
                 <h3 class="wpm-title">Assign Work Location</h3>
                 <p class="wpm-subtitle">Where will this employee be working?</p>
                 <input type="text" id="wpmInput" class="wpm-input"
-                    placeholder="e.g. Koramangala Client, Site A, Home..." autocomplete="off"/>
+                    placeholder="e.g. Koramangala Client, Site A..." autocomplete="off"/>
                 <div class="wpm-actions">
                     <button class="wpm-btn wpm-cancel" onclick="cancelWorkplaceModal()">Cancel</button>
                     <button class="wpm-btn wpm-confirm" onclick="confirmWorkplaceModal('${empId}')">✔ Confirm</button>
@@ -498,10 +485,8 @@ function showWorkplaceModal(empId, selectEl) {
     `;
     document.body.appendChild(overlay);
     window._wpmSelectEl = selectEl;
-
     requestAnimationFrame(() => document.getElementById('wpmCard').classList.add('wpm-card-in'));
     setTimeout(() => document.getElementById('wpmInput')?.focus(), 300);
-
     document.getElementById('wpmInput').addEventListener('keydown', function (e) {
         if (e.key === 'Enter')  confirmWorkplaceModal(empId);
         if (e.key === 'Escape') cancelWorkplaceModal();
@@ -538,26 +523,15 @@ function closeWorkplaceModal() {
 async function commitStatusUpdate(empId, newStatus, workPlace, selectEl) {
     try {
         const body = { status: newStatus, workPlace: newStatus === 'Working' ? workPlace : '' };
-
-        const res = await fetch(`${API}/employees/${empId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        if (!res.ok) throw new Error('Server error ' + res.status);
-        const updated = await res.json();
-
+        await updateItem('employees', empId, body);
         if (selectEl) selectEl.dataset.lastGood = newStatus;
 
-        // Update working details cell
         const detailCell = document.getElementById(`workDetail-${empId}`);
         if (detailCell) {
             detailCell.innerHTML = (newStatus === 'Working' && workPlace)
                 ? `<span class="work-location-badge">📍 ${workPlace}</span>`
                 : `<span style="color:#bbb;">—</span>`;
         }
-
-        // Update badge
         if (selectEl) {
             const badge = selectEl.closest('tr')?.querySelector('.status-badge');
             if (badge) {
@@ -565,12 +539,10 @@ async function commitStatusUpdate(empId, newStatus, workPlace, selectEl) {
                 badge.className   = `status-badge status-${newStatus.toLowerCase().replace(/ /g, '-')}`;
             }
         }
-
-        showNotification(`✅ ${updated.firstName} ${updated.lastName || ''} → ${newStatus}${workPlace ? ' @ ' + workPlace : ''}`, 'success');
+        showNotification(`✅ Status updated → ${newStatus}${workPlace ? ' @ ' + workPlace : ''}`, 'success');
         updateDashboard();
     } catch (err) {
-        console.error('Status update failed:', err);
-        showNotification('❌ Failed to update status. Check server connection.', 'warning');
+        showNotification('❌ Failed to update status', 'warning');
         if (selectEl) selectEl.value = selectEl.dataset.lastGood || 'Active';
     }
 }
@@ -580,15 +552,12 @@ async function commitStatusUpdate(empId, newStatus, workPlace, selectEl) {
 // ===============================
 async function loadCustomers() {
     try {
-        const res       = await fetch(`${API}/customers`);
-        const customers = await res.json();
+        const customers = await getAll('customers');
         window._appCustomers = customers;
         renderCustomerTable(customers);
         loadCustomerDropdown(customers);
         updateDashboard();
-    } catch (err) {
-        console.error('Load customers error:', err);
-    }
+    } catch (err) { console.error('Load customers error:', err); }
 }
 
 function renderCustomerTable(customers) {
@@ -601,13 +570,13 @@ function renderCustomerTable(customers) {
     customers.forEach(cust => {
         tbody.innerHTML += `
             <tr style="border-bottom:1px solid #f0f0f0;">
-                <td style="padding:12px 12px;font-weight:600;">${cust.name}</td>
-                <td style="padding:12px 12px;color:#666;font-size:13px;">${cust.stateCode || '-'}</td>
-                <td style="padding:12px 12px;font-size:13px;">${cust.gst ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;">✓ GST</span>' : '<span style="color:#bbb;font-size:12px;">No GST</span>'}</td>
-                <td style="padding:12px 12px;font-size:13px;">${cust.phone || '-'}</td>
-                <td style="padding:12px 12px;text-align:center;">
-                    <button onclick="editCustomer('${cust._id}')" style="background:#eff6ff;color:#2563eb;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;margin-right:4px;">✏ Edit</button>
-                    <button onclick="deleteCustomer('${cust._id}')" style="background:#fee2e2;color:#dc2626;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">🗑 Delete</button>
+                <td style="padding:12px;font-weight:600;">${cust.name}</td>
+                <td style="padding:12px;color:#666;font-size:13px;">${cust.stateCode || '-'}</td>
+                <td style="padding:12px;font-size:13px;">${cust.gst ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;">✓ GST</span>' : '<span style="color:#bbb;font-size:12px;">No GST</span>'}</td>
+                <td style="padding:12px;font-size:13px;">${cust.phone || '-'}</td>
+                <td style="padding:12px;text-align:center;">
+                    <button onclick="editCustomer('${cust.id}')" style="background:#eff6ff;color:#2563eb;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;margin-right:4px;">✏ Edit</button>
+                    <button onclick="deleteCustomer('${cust.id}')" style="background:#fee2e2;color:#dc2626;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">🗑 Delete</button>
                 </td>
             </tr>
         `;
@@ -617,7 +586,6 @@ function renderCustomerTable(customers) {
 async function saveCustomer() {
     const name = document.getElementById('customerName').value.trim();
     if (!name) { showNotification('⚠ Customer name required', 'error'); return; }
-
     const payload = {
         name,
         address:   document.getElementById('customerAddress').value.trim(),
@@ -625,45 +593,33 @@ async function saveCustomer() {
         gst:       document.getElementById('customerGST').value.trim(),
         phone:     document.getElementById('customerPhone').value.trim()
     };
-
     try {
-        let res;
         if (window._editingCustomerId) {
-            res = await fetch(`${API}/customers/${window._editingCustomerId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            await updateItem('customers', window._editingCustomerId, payload);
             window._editingCustomerId = null;
         } else {
-            res = await fetch(`${API}/customers`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            // Check duplicate
+            const existing = (window._appCustomers || []).find(c => c.name.toLowerCase() === name.toLowerCase());
+            if (existing) { showNotification('⚠ Customer already exists', 'warning'); return; }
+            await addItem('customers', payload);
         }
-        if (res.status === 409) { showNotification('⚠ Customer already exists', 'warning'); return; }
-        if (!res.ok) throw new Error(await res.text());
-
         showNotification('👤 Customer saved', 'success');
         clearCustomerForm();
         loadCustomers();
-    } catch (err) {
-        showNotification('❌ Failed to save customer', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to save customer', 'warning'); }
 }
 
 async function deleteCustomer(id) {
     if (!confirm('Delete this customer?')) return;
     try {
-        await fetch(`${API}/customers/${id}`, { method: 'DELETE' });
+        await deleteItem('customers', id);
         showNotification('🗑 Customer deleted', 'warning');
         loadCustomers();
     } catch (err) { showNotification('❌ Failed to delete', 'warning'); }
 }
 
 function editCustomer(id) {
-    const cust = (window._appCustomers || []).find(c => c._id === id);
+    const cust = (window._appCustomers || []).find(c => c.id === id);
     if (!cust) return;
     window._editingCustomerId = id;
     document.getElementById('customerName').value    = cust.name;
@@ -685,7 +641,7 @@ function clearCustomerForm() {
 }
 
 function searchCustomers() {
-    const q = document.getElementById('customerSearch').value.toLowerCase();
+    const q   = document.getElementById('customerSearch').value.toLowerCase();
     const all = window._appCustomers || [];
     renderCustomerTable(all.filter(c => c.name.toLowerCase().includes(q)));
 }
@@ -694,12 +650,10 @@ function loadCustomerDropdown(customers) {
     customers = customers || window._appCustomers || [];
     const select = document.getElementById('customerSelect');
     if (!select) return;
-
     select.innerHTML = '<option value="">— Select Saved Customer —</option>';
     customers.forEach(cust => {
-        select.innerHTML += `<option value="${cust._id}">${cust.name}</option>`;
+        select.innerHTML += `<option value="${cust.id}">${cust.name}</option>`;
     });
-
     if (window.customerChoicesInstance) window.customerChoicesInstance.destroy();
     if (typeof Choices !== 'undefined') {
         window.customerChoicesInstance = new Choices(select, {
@@ -710,7 +664,7 @@ function loadCustomerDropdown(customers) {
 
 function attachCustomerSelectListener() {
     document.getElementById('customerSelect')?.addEventListener('change', function () {
-        const cust = (window._appCustomers || []).find(c => c._id === this.value);
+        const cust = (window._appCustomers || []).find(c => c.id === this.value);
         if (cust) {
             const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
             set('billName', cust.name);
@@ -728,12 +682,13 @@ function attachCustomerSelectListener() {
 }
 
 // ===============================
-// INVOICE — HISTORY (API-backed)
+// INVOICES
 // ===============================
 async function loadInvoiceHistory() {
     try {
-        const res      = await fetch(`${API}/invoices`);
-        const invoices = await res.json();
+        const invoices = await getAll('invoices');
+        // Sort newest first
+        invoices.sort((a, b) => (b.invoiceDate || '').localeCompare(a.invoiceDate || ''));
         window._appInvoices = invoices;
         filterInvoices();
     } catch (err) { console.error('Load invoices error:', err); }
@@ -755,7 +710,6 @@ function filterInvoices() {
             (inv.customerName || '').toLowerCase().includes(searchQuery);
         const matchStatus = statFilter === 'All' || inv.status === statFilter;
         const matchTax    = taxFilter  === 'All' || inv.taxType === taxFilter || (taxFilter === 'none' && !inv.taxType);
-
         if (!matchSearch || !matchStatus || !matchTax) return;
 
         const locked = inv.status === 'Paid';
@@ -767,7 +721,7 @@ function filterInvoices() {
             <td>₹ ${Number(inv.total).toFixed(2)}</td>
             <td>${getTaxLabel(inv.taxType)}</td>
             <td>
-                <select class="status-${inv.status}" onchange="updateInvoiceStatus('${inv._id}', this.value, this)" ${locked ? 'disabled' : ''}>
+                <select class="status-${inv.status}" data-prev="${inv.status}" onchange="handleInvoiceStatusChange('${inv.id}', this)" ${locked ? 'disabled' : ''}>
                     ${['Draft','Pending','Sent','Paid','Cancelled','Overdue'].map(s =>
                         `<option value="${s}" ${inv.status === s ? 'selected' : ''}>${s}</option>`
                     ).join('')}
@@ -778,10 +732,10 @@ function filterInvoices() {
                     ? `<span class="locked-badge">🔒 Locked</span>
                        <button onclick="generateInvoicePDF(window._appInvoices[${index}],'view')">View</button>
                        <button onclick="generateInvoicePDF(window._appInvoices[${index}],'download')">Download</button>`
-                    : `<button onclick="editInvoice('${inv._id}')">Edit</button>
+                    : `<button onclick="editInvoice('${inv.id}')">Edit</button>
                        <button onclick="generateInvoicePDF(window._appInvoices[${index}],'view')">View</button>
                        <button onclick="generateInvoicePDF(window._appInvoices[${index}],'download')">Download</button>
-                       <button onclick="deleteInvoice('${inv._id}')" style="background:#dc3545;color:white;border:none;border-radius:3px;padding:3px 8px;">Delete</button>`
+                       <button onclick="deleteInvoice('${inv.id}')" style="background:#dc3545;color:white;border:none;border-radius:3px;padding:3px 8px;">Delete</button>`
                 }
             </td>
         `;
@@ -789,30 +743,67 @@ function filterInvoices() {
     });
 }
 
+// ── Payment modal with cancel support ──
+let _pendingPaymentInvId  = null;
+let _pendingPaymentSelect = null;
+let _pendingPaymentPrevStatus = null;
+
+function handleInvoiceStatusChange(id, selectEl) {
+    const newStatus = selectEl.value;
+    if (newStatus === 'Paid') {
+        _pendingPaymentPrevStatus = selectEl.getAttribute('data-prev') || 'Pending';
+        _pendingPaymentInvId  = id;
+        _pendingPaymentSelect = selectEl;
+        document.getElementById('paymentModal').classList.add('active');
+    } else {
+        updateInvoiceStatus(id, newStatus, selectEl);
+    }
+    selectEl.setAttribute('data-prev', newStatus);
+}
+
+function openPaymentModal(id) {
+    _pendingPaymentInvId = id;
+    document.getElementById('paymentModal').classList.add('active');
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.remove('active');
+    if (_pendingPaymentSelect && _pendingPaymentPrevStatus) {
+        _pendingPaymentSelect.value = _pendingPaymentPrevStatus;
+        _pendingPaymentSelect.className = 'status-' + _pendingPaymentPrevStatus;
+    }
+    _pendingPaymentInvId     = null;
+    _pendingPaymentSelect    = null;
+    _pendingPaymentPrevStatus = null;
+}
+
+async function confirmInvoicePayment() {
+    if (!_pendingPaymentInvId) return;
+    const selectEl = _pendingPaymentSelect;
+    _pendingPaymentSelect = null;
+    _pendingPaymentPrevStatus = null;
+    await updateInvoiceStatus(_pendingPaymentInvId, 'Paid', selectEl);
+    document.getElementById('paymentModal').classList.remove('active');
+    _pendingPaymentInvId = null;
+}
+
 async function updateInvoiceStatus(id, newStatus, selectEl) {
     try {
-        const res = await fetch(`${API}/invoices/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
-        const updated = await res.json();
+        await updateItem('invoices', id, { status: newStatus });
 
         if (newStatus === 'Paid') {
-            // Add to finance as credit
-            await fetch(`${API}/finance/transactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const inv = (window._appInvoices || []).find(i => i.id === id);
+            if (inv) {
+                await addFinanceTxnDirect({
                     type: 'credit',
-                    date: updated.invoiceDate || new Date().toISOString().slice(0,10),
-                    paidTo: updated.customerName || 'Customer',
+                    date: inv.invoiceDate || new Date().toISOString().slice(0,10),
+                    paidTo: inv.customerName || 'Customer',
                     category: 'Invoice Payment',
                     paymentMode: 'bank',
-                    amount: updated.total,
-                    notes: 'Invoice ' + updated.invoiceNo
-                })
-            });
+                    amount: inv.total,
+                    notes: 'Invoice ' + inv.invoiceNo
+                });
+            }
             showNotification('💰 Invoice marked as Paid', 'success');
         } else if (selectEl) {
             selectEl.className = 'status-' + newStatus;
@@ -820,9 +811,7 @@ async function updateInvoiceStatus(id, newStatus, selectEl) {
 
         await loadInvoiceHistory();
         updateDashboard();
-    } catch (err) {
-        showNotification('❌ Failed to update invoice status', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to update invoice status', 'warning'); }
 }
 
 async function saveInvoiceRecord() {
@@ -858,53 +847,34 @@ async function saveInvoiceRecord() {
         customerPhone: document.getElementById('invoiceCustomerPhone')?.value || '',
         billAddress:   document.getElementById('billAddress').value,
         billState:     document.getElementById('billState').value,
-        taxType,
-        items,
-        subtotal,
-        cgst,
-        sgst,
-        gst,
-        total,
-        status: 'Pending'
+        taxType, items, subtotal, cgst, sgst, gst, total, status: 'Pending'
     };
 
     try {
-        let res, message;
+        let message;
         if (window._editingInvoiceId) {
-            // Preserve existing status on edit
-            const existing = (window._appInvoices || []).find(i => i._id === window._editingInvoiceId);
+            const existing = (window._appInvoices || []).find(i => i.id === window._editingInvoiceId);
             if (existing) payload.status = existing.status;
-            res = await fetch(`${API}/invoices/${window._editingInvoiceId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            await updateItem('invoices', window._editingInvoiceId, payload);
             message = 'Invoice updated successfully.';
             window._editingInvoiceId = null;
         } else {
-            res = await fetch(`${API}/invoices`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.status === 409) { showNotification('⚠ Invoice number already exists', 'error'); return; }
+            const dup = (window._appInvoices || []).find(i => i.invoiceNo === invoiceNo);
+            if (dup) { showNotification('⚠ Invoice number already exists', 'error'); return; }
+            await addItem('invoices', payload);
             message = 'Invoice created successfully.';
         }
-        if (!res.ok) throw new Error(await res.text());
-
         showNotification('🧾 ' + message, 'success');
         resetInvoiceForm();
         await loadInvoiceHistory();
         updateDashboard();
-    } catch (err) {
-        showNotification('❌ Failed to save invoice', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to save invoice', 'warning'); }
 }
 
 async function deleteInvoice(id) {
     if (!confirm('Delete this invoice?')) return;
     try {
-        await fetch(`${API}/invoices/${id}`, { method: 'DELETE' });
+        await deleteItem('invoices', id);
         showNotification('🗑 Invoice deleted', 'warning');
         await loadInvoiceHistory();
         updateDashboard();
@@ -912,11 +882,10 @@ async function deleteInvoice(id) {
 }
 
 function editInvoice(id) {
-    const inv = (window._appInvoices || []).find(i => i._id === id);
+    const inv = (window._appInvoices || []).find(i => i.id === id);
     if (!inv) return;
     window._editingInvoiceId = id;
     showSection('createInvoice');
-
     document.getElementById('invoiceNumber').value = inv.invoiceNo;
     document.getElementById('invoiceDate').value   = inv.invoiceDate;
     document.getElementById('dueDate').value        = inv.dueDate || '';
@@ -925,9 +894,7 @@ function editInvoice(id) {
     document.getElementById('billState').value      = inv.billState || '';
     const pf = document.getElementById('invoiceCustomerPhone');
     if (pf) pf.value = inv.customerPhone || '';
-
     toggleCustomerLock(true);
-
     const tbody = document.getElementById('invoiceItemsBody');
     tbody.innerHTML = '';
     inv.items.forEach(item => {
@@ -938,7 +905,6 @@ function editInvoice(id) {
         last.querySelector('.qty').value  = item.qty;
         last.querySelector('.rate').value = item.rate;
     });
-
     if (inv.taxType) {
         const radio = document.querySelector(`input[name="taxType"][value="${inv.taxType}"]`);
         if (radio) radio.checked = true;
@@ -948,36 +914,36 @@ function editInvoice(id) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Invoice payment modal (called from All Invoices)
-let _pendingPaymentInvId = null;
-function openPaymentModal(id) {
-    _pendingPaymentInvId = id;
-    document.getElementById('paymentModal').classList.add('active');
-}
-function closePaymentModal() {
-    document.getElementById('paymentModal').classList.remove('active');
-    _pendingPaymentInvId = null;
-}
-async function confirmInvoicePayment() {
-    if (!_pendingPaymentInvId) return;
-    const mode = document.getElementById('invoicePaymentMode').value;
-    await updateInvoiceStatus(_pendingPaymentInvId, 'Paid', null);
-    closePaymentModal();
+// ===============================
+// FINANCE
+// ===============================
+
+// Helper to add a transaction and update balance in Firestore
+async function addFinanceTxnDirect(data) {
+    const amt = Math.round(parseFloat(data.amount) * 100) / 100;
+    await addItem('transactions', { ...data, amount: amt });
+
+    // Update balance doc
+    const balSnap = await getDoc(docRef('settings', 'balance'));
+    let bal = balSnap.exists() ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
+    if (data.type === 'credit') {
+        if (data.paymentMode === 'cash') bal.cashBalance = (bal.cashBalance || 0) + amt;
+        else                              bal.bankBalance  = (bal.bankBalance  || 0) + amt;
+    } else {
+        if (data.paymentMode === 'cash') bal.cashBalance = (bal.cashBalance || 0) - amt;
+        else                              bal.bankBalance  = (bal.bankBalance  || 0) - amt;
+    }
+    await setDoc(docRef('settings', 'balance'), bal);
 }
 
-// ===============================
-// FINANCE — UI (reads from API)
-// ===============================
 async function refreshFinanceUI() {
     try {
-        const [txnRes, balRes] = await Promise.all([
-            fetch(`${API}/finance/transactions`),
-            fetch(`${API}/finance/balance`)
+        const [transactions, balSnap] = await Promise.all([
+            getAll('transactions'),
+            getDoc(docRef('settings', 'balance'))
         ]);
-        const transactions = await txnRes.json();
-        const balance      = await balRes.json();
+        const balance = balSnap.exists() ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
 
-        // Cache for FinanceCore compatibility
         window._financeTransactions = transactions;
         window._financeBalance      = balance;
 
@@ -989,15 +955,14 @@ async function refreshFinanceUI() {
         const now = new Date();
         const currentMonth = now.getMonth(), currentYear = now.getFullYear();
 
-        const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const sorted = [...transactions].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         const bank   = Number(balance.bankBalance || 0);
         const cash   = Number(balance.cashBalance || 0);
 
-        // Reconstruct running balance
         let totalCredits = 0, totalDebits = 0;
         sorted.forEach(t => {
             if (t.type === 'credit') totalCredits += Number(t.amount);
-            else totalDebits += Number(t.amount);
+            else                      totalDebits  += Number(t.amount);
         });
         let running = Math.round(((bank + cash) - totalCredits + totalDebits) * 100) / 100;
 
@@ -1005,8 +970,8 @@ async function refreshFinanceUI() {
             const amt     = Number(txn.amount);
             const txnDate = new Date(txn.date);
             if (txnDate.getMonth() === currentMonth && txnDate.getFullYear() === currentYear) {
-                if (txn.type === 'credit') monthlyIncome   += amt;
-                else                       monthlyExpense   += amt;
+                if (txn.type === 'credit') monthlyIncome  += amt;
+                else                       monthlyExpense  += amt;
             }
             if (txn.type === 'credit') running += amt;
             else                       running -= amt;
@@ -1023,167 +988,141 @@ async function refreshFinanceUI() {
                     <td class="${amtClass}">₹${amt.toFixed(2)}</td>
                     <td>₹${running.toFixed(2)}</td>
                     <td>${txn.notes ? `<span class="note-icon" onclick="openNoteModal(\`${txn.notes.replace(/`/g,'\\`')}\`)">📝 View</span>` : '-'}</td>
-                    <td><button onclick="deleteFinanceTxn('${txn._id}')">Delete</button></td>
+                    <td><button onclick="deleteFinanceTxn('${txn.id}')">Delete</button></td>
                 </tr>
             `;
         });
 
-        const total = Math.round((bank + cash) * 100) / 100;
+        const total  = Math.round((bank + cash) * 100) / 100;
         const profit = monthlyIncome - monthlyExpense;
-
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
         set('bankBalance',    '₹' + bank.toFixed(2));
         set('cashBalance',    '₹' + cash.toFixed(2));
         set('totalBalance',   '₹' + total.toFixed(2));
         set('monthlyExpense', '₹' + monthlyExpense.toFixed(2));
-
         const profitEl = document.getElementById('monthlyProfit');
         if (profitEl) {
-            profitEl.innerText    = '₹' + profit.toFixed(2);
-            profitEl.style.color  = profit >= 0 ? '#2e7d32' : '#d32f2f';
+            profitEl.innerText   = '₹' + profit.toFixed(2);
+            profitEl.style.color = profit >= 0 ? '#2e7d32' : '#d32f2f';
         }
-    } catch (err) {
-        console.error('refreshFinanceUI error:', err);
-    }
+    } catch (err) { console.error('refreshFinanceUI error:', err); }
 }
 
 async function addFinanceTransaction() {
+    const select = document.getElementById('paidTo');
+    const paidTo = select && select.selectedIndex >= 0
+        ? select.options[select.selectedIndex].text
+        : document.getElementById('paidTo').value;
+
+    if (!paidTo || paidTo === 'Select Person') { alert('Select a person'); return; }
+
     const data = {
         type:        document.getElementById('transactionType').value,
         date:        document.getElementById('txnDate').value,
-        paidTo:      document.getElementById('paidTo').value,
+        paidTo,
         category:    document.getElementById('category').value,
         paymentMode: document.getElementById('paymentMode').value,
         amount:      document.getElementById('amount').value,
         notes:       document.getElementById('notes').value
     };
 
-    const select = document.getElementById('paidTo');
-    if (select && select.selectedIndex >= 0) {
-        data.paidTo = select.options[select.selectedIndex].text;
-    }
-
-    if (!data.paidTo || data.paidTo === 'Select Person') { alert('Select a person'); return; }
     if (!data.amount || data.amount <= 0) { alert('Enter valid amount'); return; }
     if (!data.date) { alert('Select a date'); return; }
 
     try {
-        const res = await fetch(`${API}/finance/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error(await res.text());
-
+        await addFinanceTxnDirect(data);
         document.getElementById('amount').value = '';
         document.getElementById('notes').value  = '';
         showNotification('💰 Transaction added', 'success');
         refreshFinanceUI();
-    } catch (err) {
-        showNotification('❌ Failed to add transaction', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to add transaction', 'warning'); }
 }
 
 async function setFinanceOpeningBalance() {
-    const bank = document.getElementById('openingBank').value;
-    const cash = document.getElementById('openingCash').value;
-    if (bank === '' && cash === '') { alert('Enter at least one balance'); return; }
-
+    const bank = parseFloat(document.getElementById('openingBank').value) || 0;
+    const cash = parseFloat(document.getElementById('openingCash').value) || 0;
+    if (bank === 0 && cash === 0) { alert('Enter at least one balance'); return; }
     try {
-        await fetch(`${API}/finance/balance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bankBalance: bank || 0, cashBalance: cash || 0 })
-        });
+        await setDoc(docRef('settings', 'balance'), { bankBalance: bank, cashBalance: cash });
         document.getElementById('openingBank').value = '';
         document.getElementById('openingCash').value = '';
         showNotification('💰 Opening balance set', 'success');
         refreshFinanceUI();
-    } catch (err) {
-        showNotification('❌ Failed to set balance', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to set balance', 'warning'); }
 }
 
 async function deleteFinanceTxn(id) {
     if (!confirm('Delete this transaction?')) return;
     try {
-        await fetch(`${API}/finance/transactions/${id}`, { method: 'DELETE' });
+        const txn = (window._financeTransactions || []).find(t => t.id === id);
+        if (txn) {
+            // Reverse the balance effect
+            const balSnap = await getDoc(docRef('settings', 'balance'));
+            let bal = balSnap.exists() ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
+            const amt = Number(txn.amount);
+            if (txn.type === 'credit') {
+                if (txn.paymentMode === 'cash') bal.cashBalance -= amt;
+                else                             bal.bankBalance  -= amt;
+            } else {
+                if (txn.paymentMode === 'cash') bal.cashBalance += amt;
+                else                             bal.bankBalance  += amt;
+            }
+            await setDoc(docRef('settings', 'balance'), bal);
+        }
+        await deleteItem('transactions', id);
         showNotification('🗑 Transaction deleted', 'warning');
         refreshFinanceUI();
-    } catch (err) {
-        showNotification('❌ Failed to delete', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to delete', 'warning'); }
 }
 
 async function resetFinanceBalance() {
     if (!confirm('Reset Bank & Cash balance to 0?')) return;
-    await fetch(`${API}/finance/balance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankBalance: 0, cashBalance: 0 })
-    });
+    await setDoc(docRef('settings', 'balance'), { bankBalance: 0, cashBalance: 0 });
     refreshFinanceUI();
 }
 
 async function resetMonthlyExpense() {
     if (!confirm('Delete all expenses of current month?')) return;
     try {
-        const res  = await fetch(`${API}/finance/transactions`);
-        const txns = await res.json();
+        const txns = await getAll('transactions');
         const now  = new Date();
-        const deleteIds = txns.filter(t => {
+        const toDelete = txns.filter(t => {
             const d = new Date(t.date);
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && t.type === 'debit';
-        }).map(t => t._id);
-
-        await Promise.all(deleteIds.map(id =>
-            fetch(`${API}/finance/transactions/${id}`, { method: 'DELETE' })
-        ));
+        });
+        await Promise.all(toDelete.map(t => deleteFinanceTxn(t.id)));
         showNotification('🔄 Monthly expenses cleared', 'success');
-        refreshFinanceUI();
-    } catch (err) {
-        showNotification('❌ Failed to reset', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to reset', 'warning'); }
 }
 
 async function resetMonthlyProfit() {
     if (!confirm('Delete ALL transactions of current month?')) return;
     try {
-        const res  = await fetch(`${API}/finance/transactions`);
-        const txns = await res.json();
+        const txns = await getAll('transactions');
         const now  = new Date();
-        const deleteIds = txns.filter(t => {
+        const toDelete = txns.filter(t => {
             const d = new Date(t.date);
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        }).map(t => t._id);
-
-        await Promise.all(deleteIds.map(id =>
-            fetch(`${API}/finance/transactions/${id}`, { method: 'DELETE' })
-        ));
+        });
+        await Promise.all(toDelete.map(t => deleteFinanceTxn(t.id)));
         showNotification('🔄 Monthly transactions cleared', 'success');
-        refreshFinanceUI();
-    } catch (err) {
-        showNotification('❌ Failed to reset', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to reset', 'warning'); }
 }
 
 async function loadFinancePeopleDropdown() {
     const select = document.getElementById('paidTo');
     if (!select) return;
     try {
-        const [empRes, custRes] = await Promise.all([
-            fetch(`${API}/employees`),
-            fetch(`${API}/customers`)
+        const [employees, customers] = await Promise.all([
+            getAll('employees'),
+            getAll('customers')
         ]);
-        const employees  = await empRes.json();
-        const customers  = await custRes.json();
-
         select.innerHTML = '<option value="">Select Person</option>';
         employees.forEach(emp => {
-            select.innerHTML += `<option value="emp-${emp._id}">${emp.firstName} ${emp.lastName || ''} (Employee)</option>`;
+            select.innerHTML += `<option value="emp-${emp.id}">${emp.firstName} ${emp.lastName || ''} (Employee)</option>`;
         });
         customers.forEach(cust => {
-            select.innerHTML += `<option value="cust-${cust._id}">${cust.name} (Customer)</option>`;
+            select.innerHTML += `<option value="cust-${cust.id}">${cust.name} (Customer)</option>`;
         });
     } catch (err) { console.error('Finance people dropdown error:', err); }
 }
@@ -1196,7 +1135,6 @@ function closeNoteModal() {
     document.getElementById('noteModal').classList.remove('active');
 }
 
-// Close modals on Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     const noteModal = document.getElementById('noteModal');
@@ -1212,11 +1150,10 @@ async function loadSalaryEmployees() {
     const select = document.getElementById('salaryEmployeeSelect');
     if (!select) return;
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
+        const emps = await getAll('employees');
         select.innerHTML = '<option value="">Select Employee</option>';
         emps.filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending').forEach(emp => {
-            select.innerHTML += `<option value="${emp._id}">${emp.firstName} ${emp.lastName || ''}</option>`;
+            select.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''}</option>`;
         });
     } catch (err) { console.error('Salary employees error:', err); }
 }
@@ -1243,46 +1180,24 @@ async function loadSalarySummary() {
     const month      = document.getElementById('salaryMonthSelect').value;
 
     if (!employeeId || !month) {
-        document.getElementById('salarySummaryCard')?.style && (document.getElementById('salarySummaryCard').style.display = 'none');
-        document.getElementById('salaryLedgerContainer')?.style && (document.getElementById('salaryLedgerContainer').style.display = 'none');
+        document.getElementById('salarySummaryCard').style.display   = 'none';
+        document.getElementById('salaryLedgerContainer').style.display = 'none';
         return;
     }
 
     try {
-        const res    = await fetch(`${API}/salary/${employeeId}/${month}`);
-        const record = await res.json();
+        // salary records stored as 'salary_{employeeId}_{month}'
+        const salaryDocId = `${employeeId}_${month}`;
+        const snap = await getDoc(docRef('salary', salaryDocId));
+        let record = snap.exists() ? { id: snap.id, ...snap.data() } : { duties: [], advances: [] };
         window._salaryRecord = record;
 
         let activeSalary = 0, activePaid = 0;
-        (record.duties  || []).filter(d => !d.cleared).forEach(d => activeSalary += Number(d.quantity) * Number(d.rate));
-        (record.advances|| []).filter(a => !a.cleared).forEach(a => activePaid   += Number(a.amount));
-
+        (record.duties   || []).filter(d => !d.cleared).forEach(d => activeSalary += Number(d.quantity) * Number(d.rate));
+        (record.advances || []).filter(a => !a.cleared).forEach(a => activePaid   += Number(a.amount));
         const remaining = activeSalary - activePaid;
 
-        const sCard = document.getElementById('salarySummaryCard');
-        if (sCard) sCard.style.display = 'block';
-
-        // Disable Add Duty if employee already has active duties
-        const addDutyBtn = document.querySelector('.sal-btn-action[onclick="openAddDutyModal()"]');
-        const staffRoles = ['Staff'];
-        const nurseRoles = ['Nurse','Caretaker','Babysitter','House Maid','Cook'];
-        if (addDutyBtn) {
-            try {
-                const eRes = await fetch(`${API}/employees/${employeeId}`);
-                const eData = await eRes.json();
-                const hasActiveDuties = (record.duties || []).some(d => !d.cleared);
-                const isStaff = staffRoles.includes(eData.role);
-                if (isStaff || hasActiveDuties) {
-                    addDutyBtn.disabled = true;
-                    addDutyBtn.style.opacity = '0.4';
-                    addDutyBtn.title = isStaff ? 'Use Staff Salary for staff members' : 'Employee already has active duties assigned';
-                } else {
-                    addDutyBtn.disabled = false;
-                    addDutyBtn.style.opacity = '1';
-                    addDutyBtn.title = '';
-                }
-            } catch(_) {}
-        }
+        document.getElementById('salarySummaryCard').style.display = 'block';
 
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
         set('salaryTotal',     '₹' + activeSalary.toFixed(2));
@@ -1299,13 +1214,11 @@ async function loadSalarySummary() {
         const pifw = document.getElementById('payInFullWrapper');
         if (pifw) pifw.style.display = remaining > 0 ? 'flex' : 'none';
 
-        // Fetch employee status display
-        const empRes = await fetch(`${API}/employees/${employeeId}`);
-        const emp    = await empRes.json();
+        const emp = await getById('employees', employeeId);
         const empStatusEl = document.getElementById('salaryEmpStatusDisplay');
         if (empStatusEl && emp) {
-            empStatusEl.innerText    = emp.status;
-            empStatusEl.style.color  = emp.status === 'Pending' ? '#e65100' : emp.status === 'Working' ? 'green' : 'black';
+            empStatusEl.innerText   = emp.status;
+            empStatusEl.style.color = emp.status === 'Pending' ? '#e65100' : emp.status === 'Working' ? 'green' : 'black';
         }
 
         loadSalaryLedger();
@@ -1315,30 +1228,24 @@ async function loadSalarySummary() {
 function loadSalaryLedger() {
     const record = window._salaryRecord;
     if (!record) return;
-
     const ledgerBody = document.getElementById('salaryLedgerBody');
     const container  = document.getElementById('salaryLedgerContainer');
     if (!ledgerBody) return;
-
     ledgerBody.innerHTML = '';
     let entries = [];
-
     (record.duties || []).forEach(d => {
-        let details = d.type === 'day' ? `${d.quantity} Days @ ₹${d.rate}`
+        let details = d.type === 'day'   ? `${d.quantity} Days @ ₹${d.rate}`
                     : d.type === 'shift' ? `${d.quantity} Shifts @ ₹${d.rate}`
                     : 'Fixed Monthly Salary';
-        entries.push({ date: d.date || record.month + '-01', timestamp: d.timestamp || 0,
+        entries.push({ date: d.date || '', timestamp: d.timestamp || 0,
             type: 'Duty Added', details, mode: '-', amount: Number(d.quantity) * Number(d.rate) });
     });
-
     (record.advances || []).forEach(a => {
         entries.push({ date: a.date, timestamp: a.timestamp || 0,
             type: a.isFullPayment ? 'Clearance Payment' : 'Salary Advance',
             details: '-', mode: a.paymentMode, amount: -Number(a.amount) });
     });
-
-    entries.sort((a, b) => (a.timestamp || new Date(a.date).getTime()) - (b.timestamp || new Date(b.date).getTime()));
-
+    entries.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     let running = 0;
     entries.forEach(e => { running += e.amount; e.runningBalance = running; });
     entries.forEach(e => {
@@ -1346,9 +1253,7 @@ function loadSalaryLedger() {
         const amtClass = e.amount >= 0 ? 'sal-amt-positive' : 'sal-amt-negative';
         ledgerBody.innerHTML += `
             <tr class="${rowClass}">
-                <td>${e.date}</td>
-                <td>${e.type}</td>
-                <td>${e.details}</td>
+                <td>${e.date}</td><td>${e.type}</td><td>${e.details}</td>
                 <td style="text-transform:capitalize;">${e.mode}</td>
                 <td class="${amtClass}">₹${Math.abs(e.amount).toFixed(2)}</td>
                 <td>₹${e.runningBalance.toFixed(2)}</td>
@@ -1379,24 +1284,27 @@ async function saveDuty() {
     const employeeId = document.getElementById('salaryEmployeeSelect').value;
     const month      = document.getElementById('salaryMonthSelect').value;
     const type       = document.getElementById('dutyTypeSelect').value;
-    const rate       = document.getElementById('dutyRate').value;
+    const rate       = Number(document.getElementById('dutyRate').value);
     let quantity = 1;
-    if (type === 'day')   quantity = document.getElementById('dayCount').value;
-    if (type === 'shift') quantity = document.getElementById('shiftCount').value;
+    if (type === 'day')   quantity = Number(document.getElementById('dayCount').value);
+    if (type === 'shift') quantity = Number(document.getElementById('shiftCount').value);
+    if (!rate || rate <= 0 || (type !== 'month' && (!quantity || quantity <= 0))) { alert('Enter valid details'); return; }
 
-    if (!rate || rate <= 0 || (type !== 'month' && (!quantity || quantity <= 0))) {
-        alert('Enter valid details'); return;
-    }
-
-    const duty = { type, quantity: Number(quantity), rate: Number(rate),
-        date: new Date().toISOString().slice(0,10), timestamp: Date.now(), cleared: false };
+    const duty = { type, quantity, rate, date: new Date().toISOString().slice(0,10), timestamp: Date.now(), cleared: false };
 
     try {
-        await fetch(`${API}/salary/${employeeId}/${month}/duty`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(duty)
-        });
+        const salaryDocId = `${employeeId}_${month}`;
+        const snap = await getDoc(docRef('salary', salaryDocId));
+        let record = snap.exists() ? snap.data() : { duties: [], advances: [] };
+        record.duties = [...(record.duties || []), duty];
+        await setDoc(docRef('salary', salaryDocId), record);
+
+        // Mark employee as Pending
+        const emp = await getById('employees', employeeId);
+        if (emp && emp.status !== 'Working') {
+            await updateItem('employees', employeeId, { status: 'Pending' });
+        }
+
         closeDutyModal();
         loadSalarySummary();
         loadStatusTable();
@@ -1421,27 +1329,21 @@ async function saveAdvance() {
     const paymentMode = document.getElementById('advancePaymentMode').value;
     if (!amount || amount <= 0) { alert('Enter valid amount'); return; }
 
-    const advance = { amount, paymentMode, date: new Date().toISOString().slice(0,10),
-        timestamp: Date.now(), cleared: false };
+    const advance = { amount, paymentMode, date: new Date().toISOString().slice(0,10), timestamp: Date.now(), cleared: false };
 
     try {
-        await fetch(`${API}/salary/${employeeId}/${month}/advance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(advance)
-        });
+        const salaryDocId = `${employeeId}_${month}`;
+        const snap = await getDoc(docRef('salary', salaryDocId));
+        let record = snap.exists() ? snap.data() : { duties: [], advances: [] };
+        record.advances = [...(record.advances || []), advance];
+        await setDoc(docRef('salary', salaryDocId), record);
 
-        // Also log to finance
-        const empRes = await fetch(`${API}/employees/${employeeId}`);
-        const emp    = await empRes.json();
-        await fetch(`${API}/finance/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'debit', date: advance.date,
-                paidTo: `${emp.firstName} ${emp.lastName || ''} (Employee)`,
-                category: 'Salary Advance', paymentMode, amount, notes: 'Salary Advance - ' + month
-            })
+        const emp = await getById('employees', employeeId);
+        await addFinanceTxnDirect({
+            type: 'debit', date: advance.date,
+            paidTo: `${emp.firstName} ${emp.lastName || ''} (Employee)`,
+            category: 'Salary Advance', paymentMode, amount,
+            notes: 'Salary Advance - ' + month
         });
 
         closeAdvanceModal();
@@ -1461,52 +1363,40 @@ async function confirmManualPayment() {
     if (!record) return;
 
     let activeSal = 0, activeAdv = 0;
-    (record.duties  || []).filter(d => !d.cleared).forEach(d => activeSal += Number(d.quantity) * Number(d.rate));
-    (record.advances|| []).filter(a => !a.cleared).forEach(a => activeAdv += Number(a.amount));
+    (record.duties   || []).filter(d => !d.cleared).forEach(d => activeSal += Number(d.quantity) * Number(d.rate));
+    (record.advances || []).filter(a => !a.cleared).forEach(a => activeAdv += Number(a.amount));
     const owed = activeSal - activeAdv;
 
     if (owed > 0) {
         const advance = { amount: owed, paymentMode, date: new Date().toISOString().slice(0,10),
             timestamp: Date.now(), cleared: true, isFullPayment: true };
+        const salaryDocId = `${employeeId}_${month}`;
+        const snap = await getDoc(docRef('salary', salaryDocId));
+        let rec = snap.exists() ? snap.data() : { duties: [], advances: [] };
+        rec.advances = [...(rec.advances || []), advance];
+        await setDoc(docRef('salary', salaryDocId), rec);
 
-        await fetch(`${API}/salary/${employeeId}/${month}/advance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(advance)
-        });
-
-        // Log to finance
-        const empRes = await fetch(`${API}/employees/${employeeId}`);
-        const emp    = await empRes.json();
-        await fetch(`${API}/finance/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'debit', date: advance.date,
-                paidTo: `${emp.firstName} ${emp.lastName || ''} (Employee)`,
-                category: 'salary', paymentMode, amount: owed, notes: 'Full Salary Settlement - ' + month
-            })
+        const emp = await getById('employees', employeeId);
+        await addFinanceTxnDirect({
+            type: 'debit', date: advance.date,
+            paidTo: `${emp.firstName} ${emp.lastName || ''} (Employee)`,
+            category: 'salary', paymentMode, amount: owed,
+            notes: 'Full Salary Settlement - ' + month
         });
         refreshFinanceUI();
     }
 
     // Clear all duties + advances
-    const updatedDuties   = (record.duties   || []).map(d => ({ ...d, cleared: true }));
-    const updatedAdvances = (record.advances || []).map(a => ({ ...a, cleared: true }));
-    await fetch(`${API}/salary/${employeeId}/${month}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duties: updatedDuties, advances: updatedAdvances })
-    });
+    const salaryDocId = `${employeeId}_${month}`;
+    const snap2 = await getDoc(docRef('salary', salaryDocId));
+    let rec2 = snap2.exists() ? snap2.data() : { duties: [], advances: [] };
+    rec2.duties   = (rec2.duties   || []).map(d => ({ ...d, cleared: true }));
+    rec2.advances = (rec2.advances || []).map(a => ({ ...a, cleared: true }));
+    await setDoc(docRef('salary', salaryDocId), rec2);
 
-    // Release employee if checkbox checked
     const endDuty = document.getElementById('endDutyCheckbox');
     if (endDuty && endDuty.checked) {
-        await fetch(`${API}/employees/${employeeId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'Active', workPlace: '' })
-        });
+        await updateItem('employees', employeeId, { status: 'Active', workPlace: '' });
         loadStatusTable();
         updateDashboard();
     }
@@ -1530,16 +1420,11 @@ async function resetWorkLogs() {
     const month      = document.getElementById('salaryMonthSelect').value;
     if (!employeeId || !month) return;
     if (!confirm('Reset active (unpaid) work logs for this employee?')) return;
-
-    const record = window._salaryRecord;
-    if (!record) return;
-    const clearedDuties = (record.duties || []).filter(d => d.cleared === true);
-
-    await fetch(`${API}/salary/${employeeId}/${month}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duties: clearedDuties })
-    });
+    const salaryDocId = `${employeeId}_${month}`;
+    const snap = await getDoc(docRef('salary', salaryDocId));
+    let record = snap.exists() ? snap.data() : { duties: [], advances: [] };
+    record.duties = (record.duties || []).filter(d => d.cleared === true);
+    await setDoc(docRef('salary', salaryDocId), record);
     showNotification('🔄 Work logs reset', 'info');
     loadSalarySummary();
 }
@@ -1549,12 +1434,7 @@ async function resetFullSalaryLedger() {
     const month      = document.getElementById('salaryMonthSelect').value;
     if (!employeeId || !month) return;
     if (!confirm('🛑 DANGER: Wipe all duties AND advances for this month?')) return;
-
-    await fetch(`${API}/salary/${employeeId}/${month}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duties: [], advances: [] })
-    });
+    await setDoc(docRef('salary', `${employeeId}_${month}`), { duties: [], advances: [] });
     showNotification('❌ Ledger wiped', 'warning');
     loadSalarySummary();
 }
@@ -1564,15 +1444,13 @@ async function resetFullSalaryLedger() {
 // ===============================
 async function openLeaveModal() {
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
+        const emps = await getAll('employees');
         const sel  = document.getElementById('leaveEmployeeSelect');
         sel.innerHTML = '<option value="">Select Employee</option>';
         emps.forEach(emp => {
-            sel.innerHTML += `<option value="${emp._id}">${emp.firstName} ${emp.lastName || ''} (${emp.status})</option>`;
+            sel.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''} (${emp.status})</option>`;
         });
     } catch (err) { console.error('Leave modal error:', err); }
-
     document.getElementById('leaveStartDate').value = new Date().toISOString().slice(0, 10);
     document.getElementById('leaveModal').classList.add('active');
 }
@@ -1590,56 +1468,39 @@ async function saveLeave() {
     const startDate = document.getElementById('leaveStartDate').value;
     const days      = document.getElementById('leaveDays').value;
     const reason    = document.getElementById('leaveReason').value;
-
-    if (!empId || !startDate || !days) {
-        alert('Please fill all required fields.'); return;
-    }
-
+    if (!empId || !startDate || !days) { alert('Please fill all required fields.'); return; }
     try {
-        const empRes = await fetch(`${API}/employees/${empId}`);
-        const emp    = await empRes.json();
-
-        await fetch(`${API}/leaves`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                employeeId: empId,
-                employeeName: `${emp.firstName} ${emp.lastName || ''}`,
-                type, startDate, days, reason: reason || '-'
-            })
+        const emp = await getById('employees', empId);
+        await addItem('leaves', {
+            employeeId: empId,
+            employeeName: `${emp.firstName} ${emp.lastName || ''}`,
+            type, startDate, days, reason: reason || '-'
         });
-
+        await updateItem('employees', empId, { status: 'On Leave', workPlace: '' });
         showNotification('📅 Leave recorded', 'info');
         closeLeaveModal();
         loadLeaveTable();
         loadStatusTable();
         updateDashboard();
-    } catch (err) {
-        showNotification('❌ Failed to record leave', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to record leave', 'warning'); }
 }
 
 async function loadLeaveTable() {
     const tbody = document.getElementById('leaveTableBody');
     if (!tbody) return;
-
     try {
-        const res    = await fetch(`${API}/leaves`);
-        const leaves = await res.json();
+        const leaves = await getAll('leaves');
+        leaves.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         tbody.innerHTML = '';
-
-        // Update summary cards to 0 when empty
-        const setE = (id,v) => { const el=document.getElementById(id); if(el) el.innerText=v; };
-        setE('leaveTotalCount', leaves.length);
-        setE('leaveCasualCount', leaves.filter(l=>l.type==='Casual Leave').length);
-        setE('leaveSickCount',   leaves.filter(l=>l.type==='Sick Leave').length);
-        setE('leavePaidCount',   leaves.filter(l=>l.type==='Paid Leave').length);
-
+        const setE = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+        setE('leaveTotalCount',  leaves.length);
+        setE('leaveCasualCount', leaves.filter(l => l.type === 'Casual Leave').length);
+        setE('leaveSickCount',   leaves.filter(l => l.type === 'Sick Leave').length);
+        setE('leavePaidCount',   leaves.filter(l => l.type === 'Paid Leave').length);
         if (leaves.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#8b949e;padding:30px;">No leave records found.</td></tr>`;
             return;
         }
-
         const typeTag = t => {
             const c = {'Casual Leave':'#f59e0b','Sick Leave':'#ef4444','Paid Leave':'#22c55e','Unpaid Leave':'#6366f1'}[t] || '#888';
             return `<span style="background:${c}22;color:${c};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${t}</span>`;
@@ -1650,10 +1511,10 @@ async function loadLeaveTable() {
                     <td style="padding:14px 18px;">${leave.startDate}</td>
                     <td style="padding:14px 18px;"><strong>${leave.employeeName}</strong></td>
                     <td style="padding:14px 18px;">${typeTag(leave.type)}</td>
-                    <td style="padding:14px 18px;font-weight:600;">${leave.days} day${leave.days!=1?'s':''}</td>
+                    <td style="padding:14px 18px;font-weight:600;">${leave.days} day${leave.days != 1 ? 's' : ''}</td>
                     <td style="padding:14px 18px;color:#666;">${leave.reason || '-'}</td>
                     <td style="padding:14px 18px;text-align:center;">
-                        <button onclick="deleteLeave('${leave._id}')"
+                        <button onclick="deleteLeave('${leave.id}')"
                             style="background:#fee2e2;color:#dc2626;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">
                             🗑 Delete
                         </button>
@@ -1669,21 +1530,21 @@ async function loadLeaveTable() {
 async function deleteLeave(id) {
     if (!confirm('Delete this leave record?')) return;
     try {
-        await fetch(`${API}/leaves/${id}`, { method: 'DELETE' });
+        const leave = (await getAll('leaves')).find(l => l.id === id);
+        if (leave) await updateItem('employees', leave.employeeId, { status: 'Active' });
+        await deleteItem('leaves', id);
         showNotification('🗑 Leave deleted', 'warning');
         loadLeaveTable();
         loadStatusTable();
         updateDashboard();
-    } catch (err) {
-        showNotification('❌ Failed to delete leave', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to delete leave', 'warning'); }
 }
 
 // ===============================
 // ATTENDANCE
 // ===============================
 async function initAttendanceSection() {
-    await loadAttendanceMonths();
+    loadAttendanceMonths();
     await loadAttendanceEmployeeDropdown();
     loadAttendanceSummaryCards();
     loadAttendanceTable();
@@ -1711,38 +1572,31 @@ async function loadAttendanceEmployeeDropdown() {
     const select = document.getElementById('attendanceEmployeeSelect');
     if (!select) return;
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
+        const emps = await getAll('employees');
         const prev = select.value;
         select.innerHTML = '<option value="">-- All Employees --</option>';
         emps.forEach(emp => {
-            select.innerHTML += `<option value="${emp._id}">${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})</option>`;
+            select.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})</option>`;
         });
         select.value = prev;
     } catch (err) { console.error('Attendance dropdown error:', err); }
 }
 
 function openMarkAttendanceModal() {
-    fetch(`${API}/employees`)
-        .then(r => r.json())
-        .then(emps => {
-            const select = document.getElementById('markAttEmpSelect');
-            if (!select) return;
-            select.innerHTML = '<option value="">Select Employee</option>';
-            emps.filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending')
-                .forEach(emp => {
-                    select.innerHTML += `<option value="${emp._id}" data-name="${emp.firstName} ${emp.lastName || ''}">${emp.firstName} ${emp.lastName || ''}</option>`;
-                });
-        });
-
-    const todayStr = new Date().toISOString().slice(0, 10);
+    getAll('employees').then(emps => {
+        const select = document.getElementById('markAttEmpSelect');
+        if (!select) return;
+        select.innerHTML = '<option value="">Select Employee</option>';
+        emps.filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending')
+            .forEach(emp => {
+                select.innerHTML += `<option value="${emp.id}" data-name="${emp.firstName} ${emp.lastName || ''}">${emp.firstName} ${emp.lastName || ''}</option>`;
+            });
+    });
+    const todayStr  = new Date().toISOString().slice(0, 10);
     const attDateEl = document.getElementById('markAttDate');
-    if (attDateEl) {
-        attDateEl.value = todayStr;
-        attDateEl.max   = todayStr;  // prevent future date selection
-    }
-    document.getElementById('markAttStatus').value  = 'Present';
-    document.getElementById('markAttNotes').value   = '';
+    if (attDateEl) { attDateEl.value = todayStr; attDateEl.max = todayStr; }
+    document.getElementById('markAttStatus').value = 'Present';
+    document.getElementById('markAttNotes').value  = '';
     document.getElementById('markAttendanceModal').classList.add('active');
 }
 
@@ -1751,35 +1605,33 @@ function closeMarkAttendanceModal() {
 }
 
 async function saveAttendanceRecord() {
-    const select = document.getElementById('markAttEmpSelect');
-    const empId  = select.value;
-    const empName= select.options[select.selectedIndex]?.dataset.name || '';
-    const date   = document.getElementById('markAttDate').value;
-    const status = document.getElementById('markAttStatus').value;
-    const notes  = document.getElementById('markAttNotes').value.trim();
-
+    const select  = document.getElementById('markAttEmpSelect');
+    const empId   = select.value;
+    const empName = select.options[select.selectedIndex]?.dataset.name || '';
+    const date    = document.getElementById('markAttDate').value;
+    const status  = document.getElementById('markAttStatus').value;
+    const notes   = document.getElementById('markAttNotes').value.trim();
     if (!empId || !date || !status) { alert('Please fill all required fields.'); return; }
 
     try {
-        await fetch(`${API}/attendance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employeeId: empId, employeeName: empName, date, status, notes })
+        // Upsert: use empId+date as document ID to prevent duplicates
+        const attId = `${empId}_${date}`;
+        await setDoc(docRef('attendance', attId), {
+            employeeId: empId, employeeName: empName, date, status, notes,
+            updatedAt: serverTimestamp()
         });
         showNotification('✅ Attendance saved', 'success');
         closeMarkAttendanceModal();
         loadAttendanceTable();
         loadAttendanceSummaryCards();
         loadAttendanceMonthlySummary();
-    } catch (err) {
-        showNotification('❌ Failed to save attendance', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to save attendance', 'warning'); }
 }
 
 async function deleteAttendanceRecord(id) {
     if (!confirm('Delete this attendance record?')) return;
     try {
-        await fetch(`${API}/attendance/${id}`, { method: 'DELETE' });
+        await deleteItem('attendance', id);
         showNotification('🗑 Record deleted', 'warning');
         loadAttendanceTable();
         loadAttendanceSummaryCards();
@@ -1790,26 +1642,20 @@ async function deleteAttendanceRecord(id) {
 async function loadAttendanceTable() {
     const tbody = document.getElementById('attendanceTableBody');
     if (!tbody) return;
-
-    const empFilter  = document.getElementById('attendanceEmployeeSelect')?.value || '';
-    const monthFilter= document.getElementById('attendanceMonthSelect')?.value    || '';
-    const statFilter = document.getElementById('attendanceStatusFilter')?.value   || '';
-
+    const empFilter   = document.getElementById('attendanceEmployeeSelect')?.value || '';
+    const monthFilter = document.getElementById('attendanceMonthSelect')?.value    || '';
+    const statFilter  = document.getElementById('attendanceStatusFilter')?.value   || '';
     try {
-        const params = new URLSearchParams();
-        if (empFilter)   params.append('employeeId', empFilter);
-        if (monthFilter) params.append('month', monthFilter);
-        if (statFilter)  params.append('status', statFilter);
-
-        const res     = await fetch(`${API}/attendance?${params}`);
-        const records = await res.json();
-
+        let records = await getAll('attendance');
+        if (empFilter)   records = records.filter(a => a.employeeId === empFilter);
+        if (monthFilter) records = records.filter(a => a.date && a.date.startsWith(monthFilter));
+        if (statFilter)  records = records.filter(a => a.status === statFilter);
+        records.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         tbody.innerHTML = '';
         if (records.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">No attendance records found.</td></tr>`;
             return;
         }
-
         records.forEach(rec => {
             const statusClass = getAttStatusClass(rec.status);
             tbody.innerHTML += `
@@ -1819,7 +1665,7 @@ async function loadAttendanceTable() {
                     <td><span class="${statusClass}">${rec.status}</span></td>
                     <td>${rec.notes || '-'}</td>
                     <td style="text-align:center;">
-                        <button onclick="deleteAttendanceRecord('${rec._id}')"
+                        <button onclick="deleteAttendanceRecord('${rec.id}')"
                             style="background:#dc3545;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">
                             Delete
                         </button>
@@ -1835,11 +1681,8 @@ async function loadAttendanceTable() {
 async function loadAttendanceSummaryCards() {
     const monthFilter = document.getElementById('attendanceMonthSelect')?.value || '';
     try {
-        const params = new URLSearchParams();
-        if (monthFilter) params.append('month', monthFilter);
-        const res     = await fetch(`${API}/attendance?${params}`);
-        const records = await res.json();
-
+        let records = await getAll('attendance');
+        if (monthFilter) records = records.filter(a => a.date && a.date.startsWith(monthFilter));
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
         set('attCardTotal',   records.length);
         set('attCardPresent', records.filter(a => a.status === 'Present').length);
@@ -1852,29 +1695,21 @@ async function loadAttendanceMonthlySummary() {
     const monthFilter = document.getElementById('attendanceMonthSelect')?.value || '';
     const tbody = document.getElementById('attSummaryBody');
     if (!tbody) return;
-
     try {
-        const params = new URLSearchParams();
-        if (monthFilter) params.append('month', monthFilter);
-        const res     = await fetch(`${API}/attendance?${params}`);
-        const records = await res.json();
-
+        let records = await getAll('attendance');
+        if (monthFilter) records = records.filter(a => a.date && a.date.startsWith(monthFilter));
         const empMap = {};
         records.forEach(rec => {
-            if (!empMap[rec.employeeId]) {
-                empMap[rec.employeeId] = { name: rec.employeeName, Present: 0, Absent: 0, 'Half Day': 0, Holiday: 0, total: 0 };
-            }
+            if (!empMap[rec.employeeId]) empMap[rec.employeeId] = { name: rec.employeeName, Present: 0, Absent: 0, 'Half Day': 0, total: 0 };
             empMap[rec.employeeId][rec.status] = (empMap[rec.employeeId][rec.status] || 0) + 1;
             empMap[rec.employeeId].total++;
         });
-
         tbody.innerHTML = '';
         const empIds = Object.keys(empMap);
         if (empIds.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#888;padding:20px;">No data for selected month.</td></tr>`;
             return;
         }
-
         empIds.forEach(id => {
             const e = empMap[id];
             const pct = e.total > 0 ? Math.round((e.Present / e.total) * 100) : 0;
@@ -1902,54 +1737,37 @@ async function loadAttendanceMonthlySummary() {
 
 async function bulkMarkAttendance(defaultStatus) {
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
+        const emps   = await getAll('employees');
         const active = emps.filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending');
-
         if (active.length === 0) { alert('No active employees to mark.'); return; }
-
         const today = new Date().toISOString().slice(0, 10);
         let added = 0;
-
         await Promise.all(active.map(async emp => {
             try {
-                await fetch(`${API}/attendance`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        employeeId: emp._id,
-                        employeeName: `${emp.firstName} ${emp.lastName || ''}`,
-                        date: today, status: defaultStatus, notes: 'Bulk marked'
-                    })
+                await setDoc(docRef('attendance', `${emp.id}_${today}`), {
+                    employeeId: emp.id,
+                    employeeName: `${emp.firstName} ${emp.lastName || ''}`,
+                    date: today, status: defaultStatus, notes: 'Bulk marked',
+                    updatedAt: serverTimestamp()
                 });
                 added++;
-            } catch (_) { /* skip duplicates */ }
+            } catch (_) {}
         }));
-
         showNotification(`✅ Marked ${added} employees as ${defaultStatus}`, 'success');
         loadAttendanceTable();
         loadAttendanceSummaryCards();
         loadAttendanceMonthlySummary();
-    } catch (err) {
-        showNotification('❌ Bulk mark failed', 'warning');
-    }
+    } catch (err) { showNotification('❌ Bulk mark failed', 'warning'); }
 }
 
 async function exportAttendanceCSV() {
     const monthFilter = document.getElementById('attendanceMonthSelect')?.value || '';
     try {
-        const params = new URLSearchParams();
-        if (monthFilter) params.append('month', monthFilter);
-        const res     = await fetch(`${API}/attendance?${params}`);
-        const records = await res.json();
-
+        let records = await getAll('attendance');
+        if (monthFilter) records = records.filter(a => a.date && a.date.startsWith(monthFilter));
         if (records.length === 0) { alert('No records to export.'); return; }
-
         let csv = 'Date,Employee,Status,Notes\n';
-        records.forEach(rec => {
-            csv += `"${rec.date}","${rec.employeeName}","${rec.status}","${rec.notes || ''}"\n`;
-        });
-
+        records.forEach(rec => { csv += `"${rec.date}","${rec.employeeName}","${rec.status}","${rec.notes || ''}"\n`; });
         const blob = new Blob([csv], { type: 'text/csv' });
         const a    = document.createElement('a');
         a.href     = URL.createObjectURL(blob);
@@ -1974,12 +1792,9 @@ async function loadDocEmployeeFilter() {
     if (!sel) return;
     const prev = sel.value;
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
+        const emps = await getAll('employees');
         sel.innerHTML = '<option value="">All Employees</option>';
-        emps.forEach(emp => {
-            sel.innerHTML += `<option value="${emp._id}">${emp.firstName} ${emp.lastName || ''}</option>`;
-        });
+        emps.forEach(emp => { sel.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''}</option>`; });
         sel.value = prev;
     } catch (err) { console.error('Doc employee filter error:', err); }
 }
@@ -1988,12 +1803,9 @@ async function loadDocEmployeeUploadDropdown() {
     const sel = document.getElementById('docUploadEmpSelect');
     if (!sel) return;
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
+        const emps = await getAll('employees');
         sel.innerHTML = '<option value="">Select Employee</option>';
-        emps.forEach(emp => {
-            sel.innerHTML += `<option value="${emp._id}">${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})</option>`;
-        });
+        emps.forEach(emp => { sel.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})</option>`; });
     } catch (err) { console.error('Doc upload dropdown error:', err); }
 }
 
@@ -2026,7 +1838,7 @@ function previewDocFile() {
             <span style="font-size:12px;color:#666;">${formatFileType(file.type)} • ${sizeMB} MB</span></div>
         </div>`;
     if (parseFloat(sizeMB) > 5) {
-        preview.innerHTML += `<p style="color:#d32f2f;font-size:12px;margin:6px 0 0;">⚠ Large file (${sizeMB} MB). Keep docs under 5 MB for best performance.</p>`;
+        preview.innerHTML += `<p style="color:#d32f2f;font-size:12px;margin:6px 0 0;">⚠ Large file (${sizeMB} MB). Keep docs under 5 MB.</p>`;
     }
 }
 
@@ -2035,80 +1847,56 @@ async function saveDocument() {
     const docType = document.getElementById('docTypeSelect').value;
     const notes   = document.getElementById('docNotes').value.trim();
     const file    = document.getElementById('docFileInput').files[0];
-
     if (!empId)  { alert('Please select an employee.'); return; }
     if (!file)   { alert('Please choose a file.'); return; }
     if (file.size / 1024 / 1024 > 10) { alert('File too large. Max 10 MB.'); return; }
-
     const base64 = await toBase64(file);
-
-    // Get employee name
     try {
-        const empRes = await fetch(`${API}/employees/${empId}`);
-        const emp    = await empRes.json();
-
-        const saveRes = await fetch(`${API}/documents`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                employeeId:   empId,
-                employeeName: `${emp.firstName} ${emp.lastName || ''}`,
-                docType, fileName: file.name, fileType: file.type,
-                fileSize: file.size, base64, notes
-            })
+        const emp = await getById('employees', empId);
+        await addItem('documents', {
+            employeeId:   empId,
+            employeeName: `${emp.firstName} ${emp.lastName || ''}`,
+            docType, fileName: file.name, fileType: file.type,
+            fileSize: file.size, base64, notes
         });
-        if (!saveRes.ok) throw new Error('Save failed');
-
         showNotification('📎 Document uploaded', 'success');
         closeDocUploadModal();
         await renderDocumentCards();
         updateDocSummaryCards();
-    } catch (err) {
-        showNotification('❌ Failed to upload document', 'warning');
-    }
+    } catch (err) { showNotification('❌ Failed to upload document', 'warning'); }
 }
 
 async function renderDocumentCards() {
     const container  = document.getElementById('docCardsContainer');
     if (!container) return;
-
     const empFilter  = document.getElementById('docEmpFilter')?.value  || '';
     const typeFilter = document.getElementById('docTypeFilter')?.value || '';
-
     const DOC_ICONS = {
         'Aadhar Card':'🪪','PAN Card':'🗂','Passport':'📕','Driving Licence':'🚗',
         'Offer Letter':'📄','Experience Letter':'📜','Relieving Letter':'📜',
         'Bank Passbook':'🏦','Salary Slip':'💰','Medical Certificate':'🏥',
         'Police Verification':'🛡','Other':'📎'
     };
-
     try {
-        const params = new URLSearchParams();
-        if (empFilter)  params.append('employeeId', empFilter);
-        if (typeFilter) params.append('docType', typeFilter);
-        const res  = await fetch(`${API}/documents?${params}`);
-        const docs = await res.json();
-        window._docCache = docs; // cache for viewDocument
-
+        let docs = await getAll('documents');
+        if (empFilter)  docs = docs.filter(d => d.employeeId === empFilter);
+        if (typeFilter) docs = docs.filter(d => d.docType === typeFilter);
+        docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        window._docCache = docs;
         container.innerHTML = '';
-
         if (docs.length === 0) {
             container.innerHTML = `<div class="doc-empty"><div style="font-size:40px;margin-bottom:10px;">📂</div><p>No documents found. Upload the first one!</p></div>`;
             return;
         }
-
-        // Group by employee
         const grouped = {};
         docs.forEach(doc => {
             if (!grouped[doc.employeeId]) grouped[doc.employeeId] = { name: doc.employeeName, docs: [] };
             grouped[doc.employeeId].docs.push(doc);
         });
-
         Object.values(grouped).forEach(group => {
             const section = document.createElement('div');
             section.className = 'doc-employee-group';
             const empId = group.docs[0].employeeId;
-
             section.innerHTML = `
                 <div class="doc-group-header">
                     <div class="doc-emp-avatar">${getInitials(group.name)}</div>
@@ -2119,22 +1907,24 @@ async function renderDocumentCards() {
                 <div class="doc-cards-row" id="docRow-${empId}"></div>
             `;
             container.appendChild(section);
-
             const row = document.getElementById('docRow-' + empId);
             group.docs.forEach(doc => {
                 const card = document.createElement('div');
                 card.className = 'doc-card';
+                const uploadedDate = doc.createdAt?.seconds
+                    ? new Date(doc.createdAt.seconds * 1000).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
+                    : '-';
                 card.innerHTML = `
                     <div class="doc-card-icon">${DOC_ICONS[doc.docType] || '📎'}</div>
                     <div class="doc-card-type">${doc.docType}</div>
                     <div class="doc-card-filename" title="${doc.fileName}">${truncateFilename(doc.fileName)}</div>
                     <div class="doc-card-size">${formatFileSize(doc.fileSize)}</div>
-                    <div class="doc-card-date">${formatDocDate(doc.uploadedAt || doc.createdAt)}</div>
+                    <div class="doc-card-date">${uploadedDate}</div>
                     ${doc.notes ? `<div class="doc-card-notes" title="${doc.notes}">📝 ${doc.notes}</div>` : ''}
                     <div class="doc-card-actions">
-                        <button class="doc-btn-view"   onclick="viewDocument('${doc._id}')">View</button>
-                        <button class="doc-btn-dl"     onclick="downloadDocument('${doc._id}')">Download</button>
-                        <button class="doc-btn-delete" onclick="deleteDocument('${doc._id}')">Delete</button>
+                        <button class="doc-btn-view"   onclick="viewDocument('${doc.id}')">View</button>
+                        <button class="doc-btn-dl"     onclick="downloadDocument('${doc.id}')">Download</button>
+                        <button class="doc-btn-delete" onclick="deleteDocument('${doc.id}')">Delete</button>
                     </div>
                 `;
                 row.appendChild(card);
@@ -2147,20 +1937,11 @@ async function renderDocumentCards() {
 
 async function viewDocument(id) {
     try {
-        // Try fetching all and finding, but cache if available
-        const cached = (window._docCache || []).find(d => d._id === id);
-        let doc = cached;
-        if (!doc) {
-            const res = await fetch(`${API}/documents`);
-            const all = await res.json();
-            window._docCache = all;
-            doc = all.find(d => d._id === id);
-        }
+        const cached = (window._docCache || []).find(d => d.id === id);
+        let doc = cached || await getById('documents', id);
         if (!doc) return;
-
         const win = window.open('', '_blank');
         if (!win) { alert('Pop-up blocked. Please allow pop-ups.'); return; }
-
         if (doc.fileType === 'application/pdf') {
             win.document.write(`<html><head><title>${doc.fileName}</title></head>
                 <body style="margin:0;"><embed src="${doc.base64}" type="application/pdf" width="100%" height="100%"
@@ -2178,14 +1959,8 @@ async function viewDocument(id) {
 
 async function downloadDocument(id) {
     try {
-        const cached = (window._docCache || []).find(d => d._id === id);
-        let doc = cached;
-        if (!doc) {
-            const res = await fetch(`${API}/documents`);
-            const all = await res.json();
-            window._docCache = all;
-            doc = all.find(d => d._id === id);
-        }
+        const cached = (window._docCache || []).find(d => d.id === id);
+        let doc = cached || await getById('documents', id);
         if (!doc) return;
         const a    = document.createElement('a');
         a.href     = doc.base64;
@@ -2198,7 +1973,7 @@ async function downloadDocument(id) {
 async function deleteDocument(id) {
     if (!confirm('Delete this document? This cannot be undone.')) return;
     try {
-        await fetch(`${API}/documents/${id}`, { method: 'DELETE' });
+        await deleteItem('documents', id);
         showNotification('🗑 Document deleted', 'warning');
         renderDocumentCards();
         updateDocSummaryCards();
@@ -2207,21 +1982,14 @@ async function deleteDocument(id) {
 
 async function updateDocSummaryCards() {
     try {
-        const res  = await fetch(`${API}/documents`);
-        const docs = await res.json();
-
-        const totalDocs   = docs.length;
-        const totalEmps   = new Set(docs.map(d => d.employeeId)).size;
-        const totalSizeMB = (docs.reduce((s, d) => s + (d.fileSize || 0), 0) / 1024 / 1024).toFixed(1);
-
+        const docs = await getAll('documents');
         const typeCounts = {};
         docs.forEach(d => { typeCounts[d.docType] = (typeCounts[d.docType] || 0) + 1; });
         const topType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || '-';
-
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-        set('docCardTotal',   totalDocs);
-        set('docCardEmps',    totalEmps);
-        set('docCardSize',    totalSizeMB + ' MB');
+        set('docCardTotal',   docs.length);
+        set('docCardEmps',    new Set(docs.map(d => d.employeeId)).size);
+        set('docCardSize',    (docs.reduce((s, d) => s + (d.fileSize || 0), 0) / 1024 / 1024).toFixed(1) + ' MB');
         set('docCardTopType', topType);
     } catch (err) { console.error('Doc summary error:', err); }
 }
@@ -2231,8 +1999,9 @@ async function updateDocSummaryCards() {
 // ===============================
 async function loadSettings() {
     try {
-        const res = await fetch(`${API}/settings`);
-        const s   = await res.json();
+        const snap = await getDoc(docRef('settings', 'company'));
+        if (!snap.exists()) return;
+        const s = snap.data();
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
         set('companyName',    s.companyName);
         set('companyAddress', s.companyAddress);
@@ -2251,11 +2020,7 @@ async function saveSettings() {
         companyGST:     document.getElementById('companyGST').value
     };
     try {
-        await fetch(`${API}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        await setDoc(docRef('settings', 'company'), payload);
         showNotification('✅ Settings saved', 'success');
     } catch (err) { showNotification('❌ Failed to save settings', 'warning'); }
 }
@@ -2264,11 +2029,7 @@ async function changePassword() {
     const newPass = prompt('Enter new password');
     if (!newPass) return;
     try {
-        await fetch(`${API}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ erpPassword: newPass })
-        });
+        await setDoc(docRef('settings', 'auth'), { erpPassword: newPass }, { merge: true });
         localStorage.setItem('erpPassword', newPass);
         showNotification('🔑 Password changed', 'success');
     } catch (err) { alert('Failed to change password'); }
@@ -2293,7 +2054,6 @@ function restoreERP() {
     const input = document.createElement('input');
     input.type  = 'file';
     input.onchange = function (e) {
-        const file   = e.target.files[0];
         const reader = new FileReader();
         reader.onload = function (event) {
             const data = JSON.parse(event.target.result);
@@ -2301,44 +2061,102 @@ function restoreERP() {
             showNotification('♻ ERP restored', 'info');
             location.reload();
         };
-        reader.readAsText(file);
+        reader.readAsText(e.target.files[0]);
     };
     input.click();
 }
 
 async function resetInvoiceCounter() {
     if (!confirm('Reset invoice counter to 1?')) return;
-    await fetch(`${API}/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceCounter: 1 })
-    });
+    await setDoc(docRef('settings', 'company'), { invoiceCounter: 1 }, { merge: true });
     showNotification('🔄 Invoice counter reset', 'success');
 }
 
 async function resetEmployeeStatus() {
     if (!confirm('Reset all "On Leave" employees back to Active?')) return;
     try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
-        await Promise.all(
-            emps.filter(e => e.status === 'On Leave').map(e =>
-                fetch(`${API}/employees/${e._id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'Active' })
-                })
-            )
-        );
+        const emps = await getAll('employees');
+        await Promise.all(emps.filter(e => e.status === 'On Leave').map(e => updateItem('employees', e.id, { status: 'Active' })));
         showNotification('✅ Employee statuses reset', 'success');
-    } catch (err) { showNotification('❌ Failed to reset statuses', 'warning'); }
+    } catch (err) { showNotification('❌ Failed', 'warning'); }
 }
 
 function clearERP() {
-    if (!confirm('This will delete ALL local ERP data. The database will NOT be affected. Continue?')) return;
+    if (!confirm('This will clear local data only. Firestore data is unaffected. Continue?')) return;
     localStorage.clear();
-    showNotification('⚠ Local ERP data cleared', 'warning');
+    showNotification('⚠ Local data cleared', 'warning');
     location.reload();
+}
+
+// ===============================
+// STAFF SALARY MODAL
+// ===============================
+async function openStaffSalaryModal() {
+    try {
+        const emps = await getAll('employees');
+        const staffOnly = emps.filter(e => e.role === 'Staff' &&
+            (e.status === 'Active' || e.status === 'Working' || e.status === 'Pending'));
+        const existing = document.getElementById('staffSalaryModal');
+        if (existing) existing.remove();
+        const modal = document.createElement('div');
+        modal.id = 'staffSalaryModal';
+        modal.className = 'custom-modal active';
+        modal.innerHTML = `
+            <div class="custom-modal-content" style="max-width:420px;">
+                <h3 style="margin-top:0;">💼 Staff Salary Payment</h3>
+                <label style="font-size:13px;font-weight:600;">Staff Member</label>
+                <select id="staffSalaryEmpSelect" style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;">
+                    <option value="">Select Staff</option>
+                    ${staffOnly.map(e => `<option value="${e.id}">${e.firstName} ${e.lastName || ''}</option>`).join('')}
+                </select>
+                <label style="font-size:13px;font-weight:600;">Amount (₹)</label>
+                <input type="number" id="staffSalaryAmount" placeholder="Enter salary amount"
+                    style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box;">
+                <label style="font-size:13px;font-weight:600;">Payment Mode</label>
+                <select id="staffSalaryMode" style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;">
+                    <option value="">Select Mode</option>
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="netbanking">Net Banking</option>
+                </select>
+                <label style="font-size:13px;font-weight:600;">Notes (optional)</label>
+                <input type="text" id="staffSalaryNotes" placeholder="e.g. March salary"
+                    style="width:100%;margin:8px 0 20px;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box;">
+                <div style="display:flex;justify-content:flex-end;gap:10px;">
+                    <button onclick="document.getElementById('staffSalaryModal').remove()"
+                        style="background:#e0e0e0;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;">Cancel</button>
+                    <button onclick="saveStaffSalary()"
+                        style="background:#6366f1;color:white;border:none;padding:9px 18px;border-radius:8px;font-weight:600;cursor:pointer;">Pay Salary</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (err) { showNotification('❌ Failed to load staff list', 'warning'); }
+}
+
+async function saveStaffSalary() {
+    const empId  = document.getElementById('staffSalaryEmpSelect').value;
+    const amount = Number(document.getElementById('staffSalaryAmount').value);
+    const mode   = document.getElementById('staffSalaryMode').value;
+    const notes  = document.getElementById('staffSalaryNotes').value.trim();
+    if (!empId)  { showNotification('⚠ Select a staff member', 'warning'); return; }
+    if (!amount || amount <= 0) { showNotification('⚠ Enter valid amount', 'warning'); return; }
+    if (!mode)   { showNotification('⚠ Select payment mode', 'warning'); return; }
+    try {
+        const emp = await getById('employees', empId);
+        await addFinanceTxnDirect({
+            type: 'debit',
+            date: new Date().toISOString().slice(0,10),
+            paidTo: `${emp.firstName} ${emp.lastName || ''} (Staff)`,
+            category: 'salary',
+            paymentMode: mode,
+            amount,
+            notes: notes || 'Staff Salary Payment'
+        });
+        document.getElementById('staffSalaryModal').remove();
+        showNotification(`✅ Salary of ₹${amount} paid to ${emp.firstName}`, 'success');
+        refreshFinanceUI();
+    } catch (err) { showNotification('❌ Failed to save salary', 'warning'); }
 }
 
 // ===============================
@@ -2353,15 +2171,15 @@ function toggleDarkMode() {
 
 function loadDarkMode() {
     const enabled = localStorage.getItem('erpDarkMode') === 'enabled';
-    if (enabled) { document.body.classList.add('dark-mode'); }
-    else { document.body.classList.remove('dark-mode'); }
+    if (enabled) document.body.classList.add('dark-mode');
+    else          document.body.classList.remove('dark-mode');
     setTimeout(() => {
         document.querySelectorAll('#darkModeToggle').forEach(t => { t.checked = enabled; });
     }, 80);
 }
 
 // ===============================
-// AUTO LOGOUT (5 min inactivity)
+// AUTO LOGOUT
 // ===============================
 let inactivityTimer, warningTimer;
 function resetInactivityTimer() {
@@ -2396,7 +2214,7 @@ function showNotification(message, type = 'success') {
 }
 
 // ===============================
-// SHARED SMALL HELPERS
+// SHARED HELPERS
 // ===============================
 function getAttStatusClass(status) {
     if (status === 'Present')  return 'att-present';
@@ -2405,17 +2223,13 @@ function getAttStatusClass(status) {
     if (status === 'Holiday')  return 'att-holiday';
     return '';
 }
-
 function formatAttDate(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
 function getInitials(name) {
     return (name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
-
 function truncateFilename(name, max = 20) {
     if (!name) return '-';
     if (name.length <= max) return name;
@@ -2423,19 +2237,16 @@ function truncateFilename(name, max = 20) {
     if (ext > 0) return name.slice(0, max - 4) + '...' + name.slice(ext);
     return name.slice(0, max) + '...';
 }
-
 function formatFileSize(bytes) {
     if (!bytes) return '-';
     if (bytes < 1024)        return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / 1024 / 1024).toFixed(2) + ' MB';
 }
-
 function formatDocDate(iso) {
     if (!iso) return '-';
     return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
 function getFileIcon(mimeType) {
     if (!mimeType) return '📎';
     if (mimeType === 'application/pdf')               return '📕';
@@ -2444,7 +2255,6 @@ function getFileIcon(mimeType) {
     if (mimeType.includes('sheet') || mimeType.includes('excel')) return '📊';
     return '📎';
 }
-
 function formatFileType(mimeType) {
     if (!mimeType) return 'File';
     if (mimeType === 'application/pdf')  return 'PDF';
@@ -2453,105 +2263,14 @@ function formatFileType(mimeType) {
     if (mimeType.includes('sheet'))     return 'Spreadsheet';
     return mimeType.split('/')[1]?.toUpperCase() || 'File';
 }
-
 function getTaxLabel(taxType) {
     if (taxType === 'gst')       return 'IGST (18%)';
     if (taxType === 'cgst_sgst') return 'CGST + SGST';
     return 'Non-GST';
 }
 
-
 // ===============================
-// STAFF SALARY MODAL
-// ===============================
-async function openStaffSalaryModal() {
-    try {
-        const res  = await fetch(`${API}/employees`);
-        const emps = await res.json();
-        const staffOnly = emps.filter(e => e.role === 'Staff' &&
-            (e.status === 'Active' || e.status === 'Working' || e.status === 'Pending'));
-
-        // Remove existing modal if any
-        const existing = document.getElementById('staffSalaryModal');
-        if (existing) existing.remove();
-
-        const modal = document.createElement('div');
-        modal.id = 'staffSalaryModal';
-        modal.className = 'custom-modal active';
-        modal.innerHTML = `
-            <div class="custom-modal-content" style="max-width:420px;">
-                <h3 style="margin-top:0;">💼 Staff Salary Payment</h3>
-                <label style="font-size:13px;font-weight:600;">Staff Member</label>
-                <select id="staffSalaryEmpSelect" style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;">
-                    <option value="">Select Staff</option>
-                    ${staffOnly.map(e => `<option value="${e._id}">${e.firstName} ${e.lastName || ''}</option>`).join('')}
-                </select>
-                <label style="font-size:13px;font-weight:600;">Amount (₹)</label>
-                <input type="number" id="staffSalaryAmount" placeholder="Enter salary amount"
-                    style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box;">
-                <label style="font-size:13px;font-weight:600;">Payment Mode</label>
-                <select id="staffSalaryMode" style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;">
-                    <option value="">Select Mode</option>
-                    <option value="cash">Cash</option>
-                    <option value="upi">UPI</option>
-                    <option value="netbanking">Net Banking</option>
-                </select>
-                <label style="font-size:13px;font-weight:600;">Notes (optional)</label>
-                <input type="text" id="staffSalaryNotes" placeholder="e.g. March salary"
-                    style="width:100%;margin:8px 0 20px;padding:9px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box;">
-                <div style="display:flex;justify-content:flex-end;gap:10px;">
-                    <button onclick="document.getElementById('staffSalaryModal').remove()"
-                        style="background:#e0e0e0;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;">Cancel</button>
-                    <button onclick="saveStaffSalary()"
-                        style="background:#6366f1;color:white;border:none;padding:9px 18px;border-radius:8px;font-weight:600;cursor:pointer;">Pay Salary</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    } catch (err) {
-        showNotification('❌ Failed to load staff list', 'warning');
-    }
-}
-
-async function saveStaffSalary() {
-    const empId  = document.getElementById('staffSalaryEmpSelect').value;
-    const amount = Number(document.getElementById('staffSalaryAmount').value);
-    const mode   = document.getElementById('staffSalaryMode').value;
-    const notes  = document.getElementById('staffSalaryNotes').value.trim();
-
-    if (!empId)         { showNotification('⚠ Select a staff member', 'warning'); return; }
-    if (!amount || amount <= 0) { showNotification('⚠ Enter valid amount', 'warning'); return; }
-    if (!mode)          { showNotification('⚠ Select payment mode', 'warning'); return; }
-
-    try {
-        const empRes = await fetch(`${API}/employees/${empId}`);
-        const emp    = await empRes.json();
-
-        // Record as finance transaction
-        await fetch(`${API}/finance/transactions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'debit',
-                date: new Date().toISOString().slice(0,10),
-                paidTo: `${emp.firstName} ${emp.lastName || ''} (Staff)`,
-                category: 'salary',
-                paymentMode: mode,
-                amount,
-                notes: notes || 'Staff Salary Payment'
-            })
-        });
-
-        document.getElementById('staffSalaryModal').remove();
-        showNotification(`✅ Salary of ₹${amount} paid to ${emp.firstName}`, 'success');
-        refreshFinanceUI();
-    } catch (err) {
-        showNotification('❌ Failed to save salary', 'warning');
-    }
-}
-
-// ===============================
-// INVOICE HELPERS (needed by sidebar buttons)
+// INVOICE HELPERS
 // ===============================
 const indianStates = [
     "Karnataka","Maharashtra","Tamil Nadu","Kerala","Telangana","Andhra Pradesh",
@@ -2578,7 +2297,6 @@ function loadStates() {
 
 function openCreateInvoice(taxMode) {
     showSection('createInvoice');
-    // Destroy old Choices instance fully before rebuilding
     if (window.customerChoicesInstance) {
         try { window.customerChoicesInstance.destroy(); } catch(e) {}
         window.customerChoicesInstance = null;
@@ -2587,7 +2305,7 @@ function openCreateInvoice(taxMode) {
     if (select) {
         select.innerHTML = '<option value="">\u2014 Select Saved Customer \u2014</option>';
         (window._appCustomers || []).forEach(cust => {
-            select.innerHTML += `<option value="${cust._id}">${cust.name}</option>`;
+            select.innerHTML += `<option value="${cust.id}">${cust.name}</option>`;
         });
         if (typeof Choices !== 'undefined') {
             window.customerChoicesInstance = new Choices(select, {
@@ -2596,11 +2314,10 @@ function openCreateInvoice(taxMode) {
         }
     }
     resetInvoiceForm();
-    // Clear all bill fields
     ['billName','billAddress','billState','invoiceCustomerPhone'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
     });
-    const taxRadio = document.querySelector('input[name="taxType"][value="' + (taxMode === 'gst' ? 'gst' : 'none') + '"]');
+    const taxRadio = document.querySelector(`input[name="taxType"][value="${taxMode === 'gst' ? 'gst' : 'none'}"]`);
     if (taxRadio) taxRadio.checked = true;
     calculateInvoiceLive();
 }
@@ -2613,21 +2330,17 @@ window.addEventListener('load', async function () {
     resetInactivityTimer();
     loadStates();
 
-    // Pre-load customers into memory for invoice dropdown
     try {
-        const res = await fetch(`${API}/customers`);
-        window._appCustomers = await res.json();
-        loadCustomerDropdown(window._appCustomers);
+        const customers = await getAll('customers');
+        window._appCustomers = customers;
+        loadCustomerDropdown(customers);
         attachCustomerSelectListener();
     } catch (_) {}
 
-    // Pre-load invoices for history
     try {
-        const res = await fetch(`${API}/invoices`);
-        window._appInvoices = await res.json();
+        window._appInvoices = await getAll('invoices');
     } catch (_) {}
 
-    // Wire salary selectors
     document.getElementById('salaryEmployeeSelect')?.addEventListener('change', loadSalarySummary);
     document.getElementById('salaryMonthSelect')?.addEventListener('change', loadSalarySummary);
 
