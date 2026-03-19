@@ -1,4 +1,5 @@
 // Called when the "Upload Card" toggle is flipped
+let pendingApprovalId = null;
 function toggleAadharUpload() {
   const toggle  = document.getElementById("aadharToggle");
   const fileEl  = document.getElementById("aadharFile");
@@ -73,62 +74,59 @@ function allowOnlyNumbers(input) {
   input.value = input.value.replace(/[^0-9]/g, "");
 }
 
-function addEmployee() {
-  const firstName     = document.getElementById("firstName");
-  const lastName      = document.getElementById("lastName");
-  const middleName    = document.getElementById("middleName");
-  const role          = document.getElementById("role");
-  const age           = document.getElementById("age");
-  const gender        = document.getElementById("gender");
-  const mobile        = document.getElementById("mobile");
-  const guardianPhone = document.getElementById("guardianPhone");
-  const address       = document.getElementById("address");
-  const nativePlace   = document.getElementById("nativePlace");
-  const languages     = document.getElementById("languages");
-  const aadhar        = document.getElementById("aadhar");
-  const aadharVerified= document.getElementById("aadharVerified");
-  const fileEl        = document.getElementById("aadharFile");
+async function addEmployee() {
 
-  if (!firstName.value || !lastName.value || !role.value) {
-    alert("Fill required fields");
-    return;
+  const fileEl = document.getElementById("aadharFile"); // ✅ FIX
+
+  const employee = {
+    firstName: document.getElementById("firstName").value,
+    middleName: document.getElementById("middleName").value,
+    lastName: document.getElementById("lastName").value,
+    age: document.getElementById("age").value,
+    gender: document.getElementById("gender").value,
+    mobile: document.getElementById("mobile").value,
+    guardianPhone: document.getElementById("guardianPhone").value,
+    address: document.getElementById("address").value,
+    nativePlace: document.getElementById("nativePlace").value,
+    languages: document.getElementById("languages").value,
+    role: document.getElementById("role").value,
+    aadhar: document.getElementById("aadhar").value,
+    aadharVerified: document.getElementById("aadharVerified").value,
+    status: "Active"
+  };
+
+  try {
+    const res = await fetch("http://localhost:5000/api/employees", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(employee)
+    });
+
+    const msg = await res.text();
+    console.log(msg);
+
+    showNotification("👤 Employee saved to database", "success");
+
+    // 🔥 AADHAR SAVE (optional)
+    const toggle = document.getElementById("aadharToggle");
+    if (toggle && toggle.checked && fileEl && fileEl.files[0]) {
+      saveAadharDocument(Date.now(), employee.firstName, fileEl.files[0]);
+    }
+
+    loadEmployees();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error saving employee");
   }
-
-  const newEmpId = Date.now();
-  const empName  = firstName.value + " " + lastName.value;
-
-  db.employees.push({
-    id:           newEmpId,
-    firstName:    firstName.value,
-    middleName:   middleName.value,
-    lastName:     lastName.value,
-    age:          age.value,
-    gender:       gender.value,
-    mobile:       mobile.value,
-    guardianPhone:guardianPhone.value,
-    address:      address.value,
-    nativePlace:  nativePlace.value,
-    languages:    languages.value,
-    role:         role.value,
-    aadhar:       aadhar.value,
-    aadharVerified: aadharVerified.value,
-    status:       "Active",
-    workPlace:    "",
-    createdAt:    new Date().toLocaleString(),
-    salaryConfig: { defaultDayRate: 0, defaultShiftRate: 0 }
-  });
-
-  showNotification("👤 Employee added successfully", "success");
-  saveDB();
-  loadEmployees();
-  loadStatusTable();
-  updateDashboard();
+}
+  
 
   // If an Aadhar file was selected, save it to Documents now
-  const toggle = document.getElementById("aadharToggle");
-  if (toggle && toggle.checked && fileEl && fileEl.files[0]) {
-    saveAadharDocument(newEmpId, empName, fileEl.files[0]);
-  }
+  
+
 
   // Reset the form
   document.querySelectorAll("#addEmployee input, #addEmployee textarea, #addEmployee select").forEach(el => {
@@ -137,10 +135,10 @@ function addEmployee() {
     else { el.value = ""; }
   });
   // Hide file input and preview after reset
-  if (fileEl) fileEl.style.display = "none";
+  
   const preview = document.getElementById("aadharPreview");
   if (preview) { preview.style.display = "none"; preview.innerHTML = ""; }
-}
+
 
 function deleteEmployee(id) {
   db.employees = db.employees.filter(e => e.id !== id);
@@ -151,8 +149,9 @@ function deleteEmployee(id) {
   showNotification("🗑 Employee deleted","warning");
 }
 
-function loadStatusTable() {
-  let table = document.getElementById("statusTable");
+async function loadStatusTable() {
+
+  const table = document.getElementById("statusTable");
   if (!table) return;
 
   table.innerHTML = `
@@ -164,141 +163,113 @@ function loadStatusTable() {
     </tr>
   `;
 
-  db.employees.forEach(emp => {
-    let statusClass = "";
+  try {
+    const res = await fetch("http://localhost:5000/api/employees");
+    const employees = await res.json();
 
-    // Connect the CSS colors
-    if (emp.status === "Working") statusClass = "status-working";
-    else if (emp.status === "Active") statusClass = "status-active";
-    else if (emp.status === "On Leave") statusClass = "status-leave";
-    else if (emp.status === "Left Company") statusClass = "status-left";
-    else if (emp.status === "Pending") statusClass = "status-pending"; 
+    employees.forEach(emp => {
 
-    // 🔥 STRICT DROPDOWN LOGIC
-    let dropdownOptions = "";
-    
-    if (emp.status === "Pending") {
-        // Locked Dropdown: Only allows approving to working or canceling back to active
-        dropdownOptions = `
-          <select onchange="changeStatus(${emp.id}, this.value, this)" style="border: 2px solid #ff9800; background-color: #fff3e0; font-weight: bold; outline: none;">
-            <option value="Pending" selected>⏳ Pending (Awaiting Approval)</option>
-            <option value="Working">✅ Approve -> Working</option>
-            <option value="Active">❌ Cancel Assignment (Back to Active)</option>
-          </select>
-        `;
-    } else if (emp.status === "On Leave") {
-        // 🔥 NEW: Locked Dropdown for Leave Management
-        dropdownOptions = `
-          <select disabled style="border: 2px solid #9e9e9e; background-color: #f5f5f5; color: #757575; font-weight: bold; outline: none; cursor: not-allowed;">
-            <option value="On Leave" selected>🔒 Locked (Manage in Leave Tab)</option>
-          </select>
-        `;
-    } else {
-        // Normal Dropdown: Cannot manually switch TO Pending or On Leave from here
-        dropdownOptions = `
-          <select onchange="changeStatus(${emp.id}, this.value, this)">
-            <option value="Active" ${emp.status==="Active"?"selected":""}>Active</option>
-            <option value="Working" ${emp.status==="Working"?"selected":""}>Working</option>
-            <option value="Left Company" ${emp.status==="Left Company"?"selected":""}>Left Company</option>
-          </select>
-        `;
-    }
+  // ✅ DEFINE FIRST (VERY IMPORTANT)
+  let statusClass = "";
 
-    table.innerHTML += `
-      <tr>
-        <td>${emp.firstName} ${emp.middleName} ${emp.lastName}</td>
+  if (emp.status === "Working") statusClass = "status-working";
+  else if (emp.status === "Active") statusClass = "status-active";
+  else if (emp.status === "On Leave") statusClass = "status-leave";
+  else if (emp.status === "Left Company") statusClass = "status-left";
 
-        <td>
-          <span class="${statusClass}">
-            ${emp.status}
-          </span>
-        </td>
+  // dropdown
+  let dropdown = `
+    <select onchange="changeStatus('${emp._id}', this.value)">
+      <option value="Active" ${emp.status==="Active"?"selected":""}>Active</option>
+      <option value="Working" ${emp.status==="Working"?"selected":""}>Working</option>
+      <option value="Left Company" ${emp.status==="Left Company"?"selected":""}>Left Company</option>
+    </select>
+  `;
 
-        <td>
-          ${dropdownOptions}
-        </td>
+  // ✅ USE AFTER DECLARING
+  table.innerHTML += `
+    <tr>
+      <td>${emp.firstName} ${emp.lastName}</td>
 
-        <td>
-          ${emp.status === "Working"
-            ? `<input type="text" value="${emp.workPlace || ""}" 
-               onchange="updateWorkPlace(${emp.id}, this.value)">`
-            : "-"
-          }
-        </td>
-      </tr>
-    `;
-  });
+      <td>
+        <span class="${statusClass}">
+          ${emp.status || "-"}
+        </span>
+      </td>
+
+      <td>${dropdown}</td>
+      <td>${emp.workPlace || "-"}</td>
+    </tr>
+  `;
+});
+
+  } catch (err) {
+    console.error(err);
+    table.innerHTML += `<tr><td colspan="4">Error loading data</td></tr>`;
+  }
 }
 
-function changeStatus(id, newStatus, selectElement) {
-  let emp = db.employees.find(e => e.id === id);
-  let oldStatus = emp.status;
+function changeStatus(id, newStatus) {
 
-  // 1. If changing TO Working (Show Work Location Modal)
+  // 🔥 IF WORKING → SHOW POPUP
   if (newStatus === "Working") {
     pendingApprovalId = id;
-    pendingApprovalSelect = selectElement;
-    pendingOldStatus = oldStatus;
-
-    document.getElementById("workLocationInput").value = "";
     document.getElementById("workLocationModal").classList.add("active");
-    return; 
-  }
-
-  // 2. 🔥 NEW: If changing FROM Working TO Active (Show Confirmation Modal)
-  if (oldStatus === "Working" && newStatus === "Active") {
-    pendingApprovalId = id;
-    pendingApprovalSelect = selectElement;
-    pendingOldStatus = oldStatus;
-
-    document.getElementById("cancelWorkingModal").classList.add("active");
     return;
   }
 
-  // Normal flow for switching to On Leave, Left Company, etc.
+  // NORMAL STATUS UPDATE
   executeStatusChange(id, newStatus);
 }
-
-// Helper function to actually apply the changes to the database
-// Helper function to actually apply the changes to the database
-function executeStatusChange(id, newStatus) {
-  let emp = db.employees.find(e => e.id === id);
-  if(!emp) return;
-
-  emp.status = newStatus;
   
-  // Clear the address if they stop working
-  if (newStatus !== "Working") {
-    emp.workPlace = ""; 
-  }
 
-  saveDB();
-  loadStatusTable();
-  if(typeof loadEmployees === "function") loadEmployees(); // 🔥 NEW: Refresh All Employees table
-  if(typeof updateDashboard === "function") updateDashboard();
+
+// Helper function to actually apply the changes to the database
+// Helper function to actually apply the changes to the database
+async function executeStatusChange(id, newStatus, workPlace = "") {
+
+  try {
+    await fetch(`http://localhost:5000/api/employees/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        status: newStatus,
+        workPlace: workPlace
+      })
+    });
+
+    showNotification("✅ Status updated", "success");
+
+     await loadEmployees();
+    await loadStatusTable();
+    if (typeof updateDashboard === "function") updateDashboard();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error updating status");
+  }
 }
 
 // --- WORK LOCATION MODAL LOGIC ---
 function confirmWorkLocation() {
-    let place = document.getElementById("workLocationInput").value.trim();
-    
-    if (place === "") {
-        alert("Work location is required to approve the Working status.");
-        return;
-    }
 
-    let emp = db.employees.find(e => e.id === pendingApprovalId);
-    if (emp) {
-        emp.status = "Working";
-        emp.workPlace = place;
-        
-        saveDB();
-        loadStatusTable(); 
-        if(typeof loadEmployees === "function") loadEmployees(); // 🔥 NEW: Refresh All Employees table
-        if(typeof updateDashboard === "function") updateDashboard();
-    }
+  const place = document.getElementById("workLocationInput").value;
+ console.log("PLACE:", place);
+  if (!place) {
+    alert("Please enter work location");
+    return;
+  }
 
-    closeWorkLocationModal();
+  // 🔥 SAVE TO MONGODB
+  executeStatusChange(pendingApprovalId, "Working", place);
+
+  // CLOSE MODAL
+  document.getElementById("workLocationModal").classList.remove("active");
+
+  // CLEAR INPUT
+  document.getElementById("workLocationInput").value = "";
 }
 
 function cancelWorkLocation() {
@@ -572,57 +543,36 @@ function downloadPDF() {
 // ===============================
 // LOAD ALL EMPLOYEES TABLE
 // ===============================
-function loadEmployees() {
-  const table = document.getElementById("empTable");
-  if (!table) return;
+async function loadEmployees() {
 
-  // Always read fresh from localStorage so we get the latest data
-  const dbData = JSON.parse(localStorage.getItem("erpDB")) || {};
-  const employees = dbData.employees || [];
+  const tbody = document.getElementById("employeeTableBody");
+  if (!tbody) return;
 
-  table.innerHTML = `
-    <tr>
-      <th>Name</th>
-      <th>Role</th>
-      <th>Mobile</th>
-      <th>Status</th>
-      <th>Aadhar</th>
-      <th>Registered On</th>
-      <th>Actions</th>
-    </tr>
-  `;
+  tbody.innerHTML = "<tr><td colspan='5'>Loading...</td></tr>";
 
-  if (employees.length === 0) {
-    table.innerHTML += `<tr><td colspan="7" style="text-align:center;color:#888;padding:20px;">No employees added yet.</td></tr>`;
-    return;
+  try {
+    const res = await fetch("http://localhost:5000/api/employees");
+    const employees = await res.json();
+
+    tbody.innerHTML = "";
+
+    employees.forEach(emp => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${emp.firstName || "-"}</td>
+          <td>${emp.lastName || "-"}</td>
+          <td>${emp.role || "-"}</td>
+          <td>${emp.mobile || "-"}</td>
+          <td>${emp.status || "-"}</td>
+        </tr>
+      `;
+    });
+
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = "<tr><td colspan='5'>Error loading employees</td></tr>";
   }
-
-  employees.forEach(emp => {
-    let statusClass = "";
-    if      (emp.status === "Working")       statusClass = "status-working";
-    else if (emp.status === "Active")        statusClass = "status-active";
-    else if (emp.status === "On Leave")      statusClass = "status-leave";
-    else if (emp.status === "Left Company")  statusClass = "status-left";
-    else if (emp.status === "Pending")       statusClass = "status-pending";
-
-    const verifiedBadge = emp.aadharVerified === "Yes"
-      ? ' <span style="color:#4caf50;font-size:11px;font-weight:bold;">✔ Verified</span>'
-      : '';
-
-    table.innerHTML += `
-      <tr>
-        <td><strong>${emp.firstName} ${emp.middleName ? emp.middleName + " " : ""}${emp.lastName}</strong></td>
-        <td>${emp.role || "-"}</td>
-        <td>${emp.mobile || "-"}</td>
-        <td><span class="${statusClass}">${emp.status}</span></td>
-        <td>${emp.aadhar || "-"}${verifiedBadge}</td>
-        <td>${emp.createdAt || "-"}</td>
-        <td style="white-space:nowrap;">
-          <button onclick="viewEmployee(${emp.id})" style="margin:2px;">View</button>
-          <button onclick="downloadSingleEmployee(${emp.id})" style="margin:2px;">PDF</button>
-          <button onclick="deleteEmployee(${emp.id})" style="background:#dc3545;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;margin:2px;">Delete</button>
-        </td>
-      </tr>
-    `;
-  });
 }
+window.onload = function () {
+  loadEmployees();
+};

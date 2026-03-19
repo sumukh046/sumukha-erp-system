@@ -18,7 +18,7 @@
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-brand-icon">🏥</div>
+      <div class="sidebar-brand-icon"><img src="logo.png" alt="Sumukha" style="width:44px;height:44px;object-fit:contain;border-radius:8px;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span style="display:none;font-size:22px;">🏥</span></div>
       <div>
         <div class="sidebar-brand-name">Sumukha ERP</div>
         <div class="sidebar-brand-sub">Nursing Services</div>
@@ -195,31 +195,52 @@
     </section>
 
     <section id="customerSection" class="sub-section">
-      <h2>Customer Management</h2>
-      <input type="text" id="customerName" placeholder="Customer Name">
-      <textarea id="customerAddress" placeholder="Customer Address"></textarea>
-      <select id="customerState"></select>
-      <input type="text" id="customerGST" placeholder="GST Number (Optional)">
-      <input type="text" id="customerPhone" placeholder="Customer Phone Number" maxlength="15">
-      <br><br>
-      <button onclick="saveCustomer()">Save Customer</button>
-      <hr>
-      <input type="text" id="customerSearch" placeholder="Search Customer..." oninput="searchCustomers()">
-      <br><br>
-      <h3>Saved Customers</h3>
-      <table border="1" width="100%" id="customerTable">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Address</th>
-            <th>State</th>
-            <th>GST</th>
-            <th>Phone</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <h2>🏢 Customer Management</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;align-items:start;">
+
+        <!-- Add Customer Form -->
+        <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.08);border-top:4px solid #6366f1;">
+          <h3 style="margin:0 0 18px;font-size:15px;color:#6366f1;" id="customerFormTitle">➕ Add Customer</h3>
+          <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Customer Name *</label>
+          <input type="text" id="customerName" placeholder="e.g. Rajesh Kumar" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;">
+          <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Address</label>
+          <textarea id="customerAddress" placeholder="Street, City, PIN" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;resize:vertical;height:72px;"></textarea>
+          <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">State</label>
+          <select id="customerState" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;"></select>
+          <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">GST Number <span style="color:#bbb;font-weight:400;">(optional)</span></label>
+          <input type="text" id="customerGST" placeholder="29AAUCS..." style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;">
+          <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Phone</label>
+          <input type="text" id="customerPhone" placeholder="9876543210" maxlength="15" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:20px;box-sizing:border-box;font-size:14px;">
+          <div style="display:flex;gap:10px;">
+            <button onclick="saveCustomer()" style="flex:1;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">💾 Save Customer</button>
+            <button onclick="clearCustomerForm()" style="padding:11px 16px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-weight:600;cursor:pointer;">✕ Clear</button>
+          </div>
+        </div>
+
+        <!-- Customer List -->
+        <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.08);border-top:4px solid #22c55e;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:15px;color:#16a34a;">👥 Saved Customers</h3>
+            <span id="customerCount" style="background:#dcfce7;color:#16a34a;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;">0</span>
+          </div>
+          <input type="text" id="customerSearch" placeholder="🔍 Search customers..." oninput="searchCustomers()"
+            style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;box-sizing:border-box;font-size:14px;">
+          <div style="overflow-x:auto;">
+            <table id="customerTable" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f8fafc;">
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#888;font-weight:600;border-bottom:1px solid #e2e8f0;">NAME</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#888;font-weight:600;border-bottom:1px solid #e2e8f0;">STATE</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#888;font-weight:600;border-bottom:1px solid #e2e8f0;">GST</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:12px;color:#888;font-weight:600;border-bottom:1px solid #e2e8f0;">PHONE</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:12px;color:#888;font-weight:600;border-bottom:1px solid #e2e8f0;">ACTION</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="salarySection" class="sub-section">
@@ -274,6 +295,7 @@
         <div class="sal-actions">
           <button class="sal-btn-action" onclick="openAddDutyModal()">➕ Add Duty</button>
           <button class="sal-btn-action" onclick="openAdvanceModal()">💸 Give Advance</button>
+          <button class="sal-btn-action" onclick="openStaffSalaryModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">💼 Staff Salary</button>
         </div>
 
         <!-- Danger buttons -->
@@ -408,6 +430,7 @@
             <option value="Babysitter">Babysitter</option>
             <option value="House Maid">House Maid</option>
             <option value="Cook">Cook</option>
+            <option value="Staff">Staff</option>
         </select>
         <textarea id="address" placeholder="House Address"></textarea>
         <div class="aadhar-section">
@@ -434,7 +457,18 @@
       <h2>All Employees</h2>
       <button onclick="downloadCSV()">Download CSV</button>
       <button onclick="downloadPDF()">Download PDF</button>
-      <table id="empTable"></table>
+      <table border="1" width="100%">
+  <thead>
+    <tr>
+      <th>First Name</th>
+      <th>Last Name</th>
+      <th>Role</th>
+      <th>Mobile</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody id="employeeTableBody"></tbody>
+</table>
     </section>
 
     <section id="employeeStatus" class="sub-section">
@@ -473,11 +507,14 @@
       </div>
 
       <!-- Note modal -->
-      <div id="noteModal" class="note-modal">
-        <div class="note-modal-content">
-          <span class="note-close" onclick="closeNoteModal()">✖</span>
-          <h3>Transaction Note</h3>
-          <p id="noteModalText"></p>
+      <div id="noteModal" class="note-modal" onclick="if(event.target===this)closeNoteModal()">
+        <div class="note-modal-content" style="position:relative;">
+          <button onclick="closeNoteModal()" style="position:absolute;top:12px;right:14px;background:transparent !important;border:none !important;font-size:20px;color:#94a3b8;cursor:pointer;padding:0;line-height:1;box-shadow:none !important;transform:none !important;" title="Close">&#x2715;</button>
+          <h3 style="margin-bottom:12px;">Transaction Note</h3>
+          <p id="noteModalText" style="color:var(--text-2);font-size:14px;line-height:1.6;margin:0;"></p>
+          <div style="margin-top:20px;text-align:right;">
+            <button onclick="closeNoteModal()" class="primary-btn">Close</button>
+          </div>
         </div>
       </div>
 
@@ -538,66 +575,119 @@
     </section>
 
     <section id="leaveSection" class="sub-section">
-        <div class="header-flex">
-            <h2>Leave Management</h2>
-            <button onclick="openLeaveModal()" class="action-btn" style="background: #007bff; color: white; padding: 5px 10px; border:none; border-radius:4px;">+ Record Leave</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+        <h2 style="margin:0;">🗓️ Leave Management</h2>
+        <button onclick="openLeaveModal()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;padding:10px 20px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,0.3);">+ Record Leave</button>
+      </div>
+
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px;">
+        <div style="background:#fff;border-radius:14px;padding:18px;border-top:4px solid #6366f1;box-shadow:0 2px 10px rgba(0,0,0,0.07);text-align:center;">
+          <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Total Leaves</div>
+          <div id="leaveTotalCount" style="font-size:28px;font-weight:800;color:#6366f1;margin-top:6px;">0</div>
         </div>
-        <div class="table-container" style="margin-top:20px;">
-            <table width="100%" border="1">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Employee</th>
-                        <th>Type</th>
-                        <th>Days</th>
-                        <th>Reason</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="leaveTableBody"></tbody>
-            </table>
+        <div style="background:#fff;border-radius:14px;padding:18px;border-top:4px solid #f59e0b;box-shadow:0 2px 10px rgba(0,0,0,0.07);text-align:center;">
+          <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Casual</div>
+          <div id="leaveCasualCount" style="font-size:28px;font-weight:800;color:#f59e0b;margin-top:6px;">0</div>
         </div>
+        <div style="background:#fff;border-radius:14px;padding:18px;border-top:4px solid #ef4444;box-shadow:0 2px 10px rgba(0,0,0,0.07);text-align:center;">
+          <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Sick</div>
+          <div id="leaveSickCount" style="font-size:28px;font-weight:800;color:#ef4444;margin-top:6px;">0</div>
+        </div>
+        <div style="background:#fff;border-radius:14px;padding:18px;border-top:4px solid #22c55e;box-shadow:0 2px 10px rgba(0,0,0,0.07);text-align:center;">
+          <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Paid</div>
+          <div id="leavePaidCount" style="font-size:28px;font-weight:800;color:#22c55e;margin-top:6px;">0</div>
+        </div>
+      </div>
+
+      <!-- Leave table -->
+      <div style="background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,0.08);overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1e293b;color:#fff;">
+              <th style="padding:14px 18px;text-align:left;font-size:12px;letter-spacing:1px;">DATE</th>
+              <th style="padding:14px 18px;text-align:left;font-size:12px;letter-spacing:1px;">EMPLOYEE</th>
+              <th style="padding:14px 18px;text-align:left;font-size:12px;letter-spacing:1px;">TYPE</th>
+              <th style="padding:14px 18px;text-align:left;font-size:12px;letter-spacing:1px;">DAYS</th>
+              <th style="padding:14px 18px;text-align:left;font-size:12px;letter-spacing:1px;">REASON</th>
+              <th style="padding:14px 18px;text-align:center;font-size:12px;letter-spacing:1px;">ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="leaveTableBody"></tbody>
+        </table>
+      </div>
     </section>
     <section id="settingsSection" class="sub-section">
+<h2>⚙️ System Settings</h2>
 
-<h2>System Settings</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:20px;">
 
-<h3>Account</h3>
+  <!-- Company Info Card -->
+  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.08);border-top:4px solid #6366f1;">
+    <h3 style="margin:0 0 16px;font-size:16px;color:#6366f1;">🏢 Company Information</h3>
+    <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Company Name</label>
+    <input id="companyName" placeholder="Sumukha Facilitators Pvt Ltd" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;">
+    <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Address</label>
+    <textarea id="companyAddress" placeholder="No 477, 45th CRS, Jayanagar..." style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;resize:vertical;height:72px;"></textarea>
+    <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Phone</label>
+    <input id="companyPhone" placeholder="9880024265" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;">
+    <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">Email</label>
+    <input id="companyEmail" placeholder="email@sumukha.com" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-size:14px;">
+    <label style="font-size:12px;font-weight:600;color:#888;display:block;margin-bottom:4px;">GST Number</label>
+    <input id="companyGST" placeholder="29AAUCS4592E1ZN" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;box-sizing:border-box;font-size:14px;">
+    <button onclick="saveSettings()" style="width:100%;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">💾 Save Settings</button>
+  </div>
 
-<button onclick="logoutUser()">Logout</button>
-<button onclick="changePassword()">Change Password</button>
-<button onclick="backupERP()">Backup ERP</button>
-<button onclick="restoreERP()">Restore ERP</button>
+  <!-- Account Card -->
+  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.08);border-top:4px solid #22c55e;">
+    <h3 style="margin:0 0 16px;font-size:16px;color:#16a34a;">🔐 Account</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="changePassword()" style="padding:12px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:10px;font-weight:600;cursor:pointer;text-align:left;">🔑 Change Password</button>
+      <button onclick="logoutUser()" style="padding:12px;background:#fef9c3;color:#a16207;border:1px solid #fde68a;border-radius:10px;font-weight:600;cursor:pointer;text-align:left;">🚪 Logout</button>
+    </div>
+    <h3 style="margin:20px 0 16px;font-size:16px;color:#3b82f6;">💾 Backup & Restore</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="backupERP()" style="padding:12px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:10px;font-weight:600;cursor:pointer;text-align:left;">📦 Backup ERP Data</button>
+      <button onclick="restoreERP()" style="padding:12px;background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:10px;font-weight:600;cursor:pointer;text-align:left;">♻️ Restore from Backup</button>
+    </div>
+  </div>
 
-<br><br>
+  <!-- System Controls Card -->
+  <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.08);border-top:4px solid #f59e0b;">
+    <h3 style="margin:0 0 16px;font-size:16px;color:#d97706;">⚙️ System Controls</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="resetInvoiceCounter()" style="padding:12px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;border-radius:10px;font-weight:600;cursor:pointer;text-align:left;">🔢 Reset Invoice Counter</button>
+      <button onclick="resetEmployeeStatus()" style="padding:12px;background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;border-radius:10px;font-weight:600;cursor:pointer;text-align:left;">👥 Reset Employee Statuses</button>
+    </div>
+    <h3 style="margin:20px 0 16px;font-size:16px;color:#ef4444;">🛑 Danger Zone</h3>
+    <button onclick="clearERP()" style="width:100%;padding:12px;background:#fee2e2;color:#dc2626;border:2px solid #fca5a5;border-radius:10px;font-weight:700;cursor:pointer;">⚠️ Reset Entire ERP</button>
+    <p style="font-size:11px;color:#999;margin:8px 0 0;text-align:center;">This will wipe all local data. Use with caution.</p>
+  </div>
 
-<h3>Data Management</h3>
+  <!-- Dark Mode Card -->
+  <div style="background:#ffffff;border-radius:16px;padding:24px;box-shadow:0 2px 16px rgba(0,0,0,0.06);border-top:4px solid #1e293b;border:1px solid #e8ecf4;">
+    <h3 style="margin:0 0 16px;font-size:15px;color:#1e293b;text-transform:none;letter-spacing:0;">🌙 Appearance</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#f8faff;border-radius:12px;border:1px solid #e8ecf4;">
+      <span style="font-weight:600;font-size:14px;color:#374151;">Dark Mode</span>
+      <div class="sidebar-toggle-track" id="settingsToggleTrack">
+        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+        <span class="sidebar-toggle-thumb"></span>
+      </div>
+    </div>
+  </div>
 
-<button onclick="backupERP()">Backup ERP Data</button>
-
-<br><br>
-
-<h3>System Controls</h3>
-
-<button onclick="resetInvoiceCounter()">Reset Invoice Counter</button>
-
-<button onclick="resetEmployeeStatus()">Reset Employee Status</button>
-
-<button onclick="clearERP()" style="background:red;color:white;">
-Reset Entire ERP
-</button>
-
+</div>
 </section>
 
     <section id="createInvoice" class="sub-section">
       <h2>Create Invoice</h2>
 
       <div class="inv-company-bar">
-        <div class="inv-company-name" id="companyName"></div>
-        <div class="inv-company-meta" id="companyAddress"></div>
-        <div class="inv-company-meta" id="companyGST"></div>
-        <div class="inv-company-meta" id="companyCIN"></div>
-        <div class="inv-company-meta" id="companyEmail"></div>
+        <div class="inv-company-name" id="invCompanyName"></div>
+        <div class="inv-company-meta" id="invCompanyAddress"></div>
+        <div class="inv-company-meta" id="invCompanyGST"></div>
+        <div class="inv-company-meta" id="invCompanyCIN"></div>
+        <div class="inv-company-meta" id="invCompanyEmail"></div>
       </div>
 
       <div class="inv-top-grid">
@@ -924,7 +1014,7 @@ Reset Entire ERP
     <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Employee</label>
     <select id="markAttEmpSelect" style="width:100%;margin-bottom:14px;"></select>
     <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Date</label>
-    <input type="date" id="markAttDate" style="width:100%;margin-bottom:14px;box-sizing:border-box;">
+    <input type="date" id="markAttDate" style="width:100%;margin-bottom:14px;box-sizing:border-box;" max="">
     <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Status</label>
     <select id="markAttStatus" style="width:100%;margin-bottom:14px;">
       <option value="Present">Present</option>
@@ -946,17 +1036,10 @@ Reset Entire ERP
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 
-<script src="storage.js"></script>
-<script src="attendance.js"></script>
 
-<script src="employees.js"></script>
-<script src="finance.js"></script>
 
 <script src="invoice.js"></script>
 
-<script src="leave.js"></script>
-<script src="documents.js"></script>
-<script src="settings.js"></script>
 
 <script src="app.js"></script>
 <div id="notificationContainer"></div>
