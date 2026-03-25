@@ -54,9 +54,12 @@ async function queryItems(colName, field, op, value) {
 // ===============================
 // AUTH GUARD
 // ===============================
-if (localStorage.getItem('erpUser') !== 'loggedIn') {
-    window.location.href = 'login.html';
-}
+firebase.auth().onAuthStateChanged(function(user) {
+    if (!user) {
+        localStorage.removeItem('erpUser');
+        window.location.href = 'login.html';
+    }
+});
 
 // ===============================
 // SECTION ROUTING
@@ -2031,8 +2034,10 @@ async function changePassword() {
 }
 
 function logoutUser() {
-    localStorage.removeItem('erpUser');
-    window.location.href = 'login.html';
+    firebase.auth().signOut().then(() => {
+        localStorage.removeItem('erpUser');
+        window.location.href = 'login.html';
+    });
 }
 
 function backupERP() {
@@ -2183,8 +2188,10 @@ function resetInactivityTimer() {
     warningTimer    = setTimeout(() => alert('You will be logged out in 1 minute due to inactivity.'), 4 * 60 * 1000);
     inactivityTimer = setTimeout(() => {
         alert('Logged out due to inactivity.');
-        localStorage.removeItem('erpUser');
-        window.location.href = 'login.html';
+        firebase.auth().signOut().then(() => {
+            localStorage.removeItem('erpUser');
+            window.location.href = 'login.html';
+        });
     }, 5 * 60 * 1000);
 }
 ['mousemove','keydown','click','scroll'].forEach(event => {
