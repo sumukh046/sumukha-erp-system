@@ -183,7 +183,7 @@ function numberToWords(num) {
 // EXACT REPLICA PDF GENERATOR (WITH VIEW)
 // ===============================
 
-function generateInvoicePDF(invoiceData = null, action = 'download') {
+async function generateInvoicePDF(invoiceData = null, action = 'download') {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
@@ -191,7 +191,54 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
     const logoBase64 = "";
     const stampBase64_GST = ""
      const stampBase64_NonGST =""
+
+    // ── Load logo for watermark ──────────────────────────────
+    let watermarkBase64 = logoBase64 || null;
+    if (!watermarkBase64) {
+        try {
+            watermarkBase64 = await new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width  = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL("image/png"));
+                };
+                img.onerror = () => resolve(null);
+                img.src = "logo.png?" + Date.now(); // cache bust
+            });
+        } catch(e) { watermarkBase64 = null; }
+    }
     
+    // ── Watermark helper — call after all content is drawn ──
+    function addWatermark() {
+        if (!watermarkBase64) return;
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            // Page dimensions: 210 x 297 mm (A4)
+            const pageW = 210;
+            const pageH = 297;
+            // Watermark size — 80mm wide, maintain aspect ratio
+            const wmW = 80;
+            const wmH = 80; // will be square, logo.png is roughly square
+            const wmX = (pageW - wmW) / 2;
+            const wmY = (pageH - wmH) / 2;
+            // jsPDF doesn't support native opacity for images
+            // Workaround: draw a white rect over it to fake translucency
+            doc.addImage(watermarkBase64, "PNG", wmX, wmY, wmW, wmH);
+            // Draw semi-transparent white overlay to reduce opacity
+            // White rect at 80% opacity = image appears at ~20% opacity
+            doc.setFillColor(255, 255, 255);
+            doc.setGState(new doc.GState({ opacity: 0.82 }));
+            doc.rect(wmX, wmY, wmW, wmH, "F");
+            doc.setGState(new doc.GState({ opacity: 1 }));
+        }
+    }
+
     let invoiceNo = "", invoiceDate = "", customerName = "", billAddress = "", items = [], subtotal = 0, cgst = 0, sgst = 0, gst = 0, grandTotal = 0;
 
     if (invoiceData) {
@@ -415,6 +462,9 @@ function generateInvoicePDF(invoiceData = null, action = 'download') {
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     doc.text("This is a computer generated invoice and does not require a physical signature.", 105, 285, { align: "center" });
+
+    // ── Draw watermark over all pages ──
+    addWatermark();
 
     if (action === 'view') {
         const pdfBlob = doc.output('blob');
@@ -727,3 +777,8 @@ function checkOverdueInvoices() {
 }
 
 // Customer management, dashboard analytics and init are handled by app.js
+
+// Populate company bar immediately when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(populateCompanyBar, 120);
+});
