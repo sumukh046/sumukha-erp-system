@@ -1,12 +1,8 @@
 // ===============================
-// FIREBASE SETUP
+// FIREBASE SETUP — compat SDK (no import needed)
+// Scripts added in index.html:
+//   firebase-app-compat, firebase-firestore-compat
 // ===============================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-    getFirestore, collection, doc,
-    addDoc, getDoc, getDocs, updateDoc, deleteDoc,
-    query, where, orderBy, setDoc, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBnohPOjGT5Cq1xTW0Rruxok89JwsvEyjU",
@@ -17,42 +13,41 @@ const firebaseConfig = {
     appId: "1:927625460940:web:bc09a6fe6b39cc2b55d669"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
 // ── Firestore helpers ──────────────────────────────────────
-const col  = name => collection(db, name);
-const docRef = (name, id) => doc(db, name, id);
+const col    = name     => db.collection(name);
+const docRef = (name, id) => db.collection(name).doc(id);
 
 async function getAll(colName) {
-    const snap = await getDocs(col(colName));
+    const snap = await col(colName).get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 async function getById(colName, id) {
-    const snap = await getDoc(docRef(colName, id));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const snap = await docRef(colName, id).get();
+    return snap.exists ? { id: snap.id, ...snap.data() } : null;
 }
 
 async function addItem(colName, data) {
-    data.createdAt = serverTimestamp();
-    const ref = await addDoc(col(colName), data);
+    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    const ref = await col(colName).add(data);
     return { id: ref.id, ...data };
 }
 
 async function updateItem(colName, id, data) {
-    data.updatedAt = serverTimestamp();
-    await updateDoc(docRef(colName, id), data);
+    data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    await docRef(colName, id).update(data);
     return { id, ...data };
 }
 
 async function deleteItem(colName, id) {
-    await deleteDoc(docRef(colName, id));
+    await docRef(colName, id).delete();
 }
 
 async function queryItems(colName, field, op, value) {
-    const q    = query(col(colName), where(field, op, value));
-    const snap = await getDocs(q);
+    const snap = await col(colName).where(field, op, value).get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
@@ -924,8 +919,8 @@ async function addFinanceTxnDirect(data) {
     await addItem('transactions', { ...data, amount: amt });
 
     // Update balance doc
-    const balSnap = await getDoc(docRef('settings', 'balance'));
-    let bal = balSnap.exists() ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
+    const balSnap = await docRef('settings', 'balance').get();
+    let bal = balSnap.exists ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
     if (data.type === 'credit') {
         if (data.paymentMode === 'cash') bal.cashBalance = (bal.cashBalance || 0) + amt;
         else                              bal.bankBalance  = (bal.bankBalance  || 0) + amt;
@@ -933,16 +928,16 @@ async function addFinanceTxnDirect(data) {
         if (data.paymentMode === 'cash') bal.cashBalance = (bal.cashBalance || 0) - amt;
         else                              bal.bankBalance  = (bal.bankBalance  || 0) - amt;
     }
-    await setDoc(docRef('settings', 'balance'), bal);
+    await docRef('settings', 'balance').set(bal);
 }
 
 async function refreshFinanceUI() {
     try {
         const [transactions, balSnap] = await Promise.all([
             getAll('transactions'),
-            getDoc(docRef('settings', 'balance'))
+            docRef('settings', 'balance').get()
         ]);
-        const balance = balSnap.exists() ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
+        const balance = balSnap.exists ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
 
         window._financeTransactions = transactions;
         window._financeBalance      = balance;
@@ -1043,7 +1038,7 @@ async function setFinanceOpeningBalance() {
     const cash = parseFloat(document.getElementById('openingCash').value) || 0;
     if (bank === 0 && cash === 0) { alert('Enter at least one balance'); return; }
     try {
-        await setDoc(docRef('settings', 'balance'), { bankBalance: bank, cashBalance: cash });
+        await docRef('settings', 'balance').set({ bankBalance: bank, cashBalance: cash });
         document.getElementById('openingBank').value = '';
         document.getElementById('openingCash').value = '';
         showNotification('💰 Opening balance set', 'success');
@@ -1057,8 +1052,8 @@ async function deleteFinanceTxn(id) {
         const txn = (window._financeTransactions || []).find(t => t.id === id);
         if (txn) {
             // Reverse the balance effect
-            const balSnap = await getDoc(docRef('settings', 'balance'));
-            let bal = balSnap.exists() ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
+            const balSnap = await docRef('settings', 'balance').get();
+            let bal = balSnap.exists ? balSnap.data() : { bankBalance: 0, cashBalance: 0 };
             const amt = Number(txn.amount);
             if (txn.type === 'credit') {
                 if (txn.paymentMode === 'cash') bal.cashBalance -= amt;
@@ -1067,7 +1062,7 @@ async function deleteFinanceTxn(id) {
                 if (txn.paymentMode === 'cash') bal.cashBalance += amt;
                 else                             bal.bankBalance  += amt;
             }
-            await setDoc(docRef('settings', 'balance'), bal);
+            await docRef('settings', 'balance').set(bal);
         }
         await deleteItem('transactions', id);
         showNotification('🗑 Transaction deleted', 'warning');
@@ -1077,7 +1072,7 @@ async function deleteFinanceTxn(id) {
 
 async function resetFinanceBalance() {
     if (!confirm('Reset Bank & Cash balance to 0?')) return;
-    await setDoc(docRef('settings', 'balance'), { bankBalance: 0, cashBalance: 0 });
+    await docRef('settings', 'balance').set({ bankBalance: 0, cashBalance: 0 });
     refreshFinanceUI();
 }
 
@@ -1188,8 +1183,8 @@ async function loadSalarySummary() {
     try {
         // salary records stored as 'salary_{employeeId}_{month}'
         const salaryDocId = `${employeeId}_${month}`;
-        const snap = await getDoc(docRef('salary', salaryDocId));
-        let record = snap.exists() ? { id: snap.id, ...snap.data() } : { duties: [], advances: [] };
+        const snap = await docRef('salary', salaryDocId).get();
+        let record = snap.exists ? { id: snap.id, ...snap.data() } : { duties: [], advances: [] };
         window._salaryRecord = record;
 
         let activeSalary = 0, activePaid = 0;
@@ -1294,10 +1289,10 @@ async function saveDuty() {
 
     try {
         const salaryDocId = `${employeeId}_${month}`;
-        const snap = await getDoc(docRef('salary', salaryDocId));
-        let record = snap.exists() ? snap.data() : { duties: [], advances: [] };
+        const snap = await docRef('salary', salaryDocId).get();
+        let record = snap.exists ? snap.data() : { duties: [], advances: [] };
         record.duties = [...(record.duties || []), duty];
-        await setDoc(docRef('salary', salaryDocId), record);
+        await docRef('salary', salaryDocId).set(record);
 
         // Mark employee as Pending
         const emp = await getById('employees', employeeId);
@@ -1333,10 +1328,10 @@ async function saveAdvance() {
 
     try {
         const salaryDocId = `${employeeId}_${month}`;
-        const snap = await getDoc(docRef('salary', salaryDocId));
-        let record = snap.exists() ? snap.data() : { duties: [], advances: [] };
+        const snap = await docRef('salary', salaryDocId).get();
+        let record = snap.exists ? snap.data() : { duties: [], advances: [] };
         record.advances = [...(record.advances || []), advance];
-        await setDoc(docRef('salary', salaryDocId), record);
+        await docRef('salary', salaryDocId).set(record);
 
         const emp = await getById('employees', employeeId);
         await addFinanceTxnDirect({
@@ -1371,10 +1366,10 @@ async function confirmManualPayment() {
         const advance = { amount: owed, paymentMode, date: new Date().toISOString().slice(0,10),
             timestamp: Date.now(), cleared: true, isFullPayment: true };
         const salaryDocId = `${employeeId}_${month}`;
-        const snap = await getDoc(docRef('salary', salaryDocId));
-        let rec = snap.exists() ? snap.data() : { duties: [], advances: [] };
+        const snap = await docRef('salary', salaryDocId).get();
+        let rec = snap.exists ? snap.data() : { duties: [], advances: [] };
         rec.advances = [...(rec.advances || []), advance];
-        await setDoc(docRef('salary', salaryDocId), rec);
+        await docRef('salary', salaryDocId).set(rec);
 
         const emp = await getById('employees', employeeId);
         await addFinanceTxnDirect({
@@ -1388,11 +1383,11 @@ async function confirmManualPayment() {
 
     // Clear all duties + advances
     const salaryDocId = `${employeeId}_${month}`;
-    const snap2 = await getDoc(docRef('salary', salaryDocId));
-    let rec2 = snap2.exists() ? snap2.data() : { duties: [], advances: [] };
+    const snap2 = await docRef('salary', salaryDocId).get();
+    let rec2 = snap2.exists ? snap2.data() : { duties: [], advances: [] };
     rec2.duties   = (rec2.duties   || []).map(d => ({ ...d, cleared: true }));
     rec2.advances = (rec2.advances || []).map(a => ({ ...a, cleared: true }));
-    await setDoc(docRef('salary', salaryDocId), rec2);
+    await docRef('salary', salaryDocId).set(rec2);
 
     const endDuty = document.getElementById('endDutyCheckbox');
     if (endDuty && endDuty.checked) {
@@ -1421,10 +1416,10 @@ async function resetWorkLogs() {
     if (!employeeId || !month) return;
     if (!confirm('Reset active (unpaid) work logs for this employee?')) return;
     const salaryDocId = `${employeeId}_${month}`;
-    const snap = await getDoc(docRef('salary', salaryDocId));
-    let record = snap.exists() ? snap.data() : { duties: [], advances: [] };
+    const snap = await docRef('salary', salaryDocId).get();
+    let record = snap.exists ? snap.data() : { duties: [], advances: [] };
     record.duties = (record.duties || []).filter(d => d.cleared === true);
-    await setDoc(docRef('salary', salaryDocId), record);
+    await docRef('salary', salaryDocId).set(record);
     showNotification('🔄 Work logs reset', 'info');
     loadSalarySummary();
 }
@@ -1434,7 +1429,7 @@ async function resetFullSalaryLedger() {
     const month      = document.getElementById('salaryMonthSelect').value;
     if (!employeeId || !month) return;
     if (!confirm('🛑 DANGER: Wipe all duties AND advances for this month?')) return;
-    await setDoc(docRef('salary', `${employeeId}_${month}`), { duties: [], advances: [] });
+    await docRef('salary', `${employeeId}_${month}`).set({ duties: [], advances: [] });
     showNotification('❌ Ledger wiped', 'warning');
     loadSalarySummary();
 }
@@ -1616,9 +1611,9 @@ async function saveAttendanceRecord() {
     try {
         // Upsert: use empId+date as document ID to prevent duplicates
         const attId = `${empId}_${date}`;
-        await setDoc(docRef('attendance', attId), {
+        await docRef('attendance', attId).set({
             employeeId: empId, employeeName: empName, date, status, notes,
-            updatedAt: serverTimestamp()
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         showNotification('✅ Attendance saved', 'success');
         closeMarkAttendanceModal();
@@ -1744,11 +1739,11 @@ async function bulkMarkAttendance(defaultStatus) {
         let added = 0;
         await Promise.all(active.map(async emp => {
             try {
-                await setDoc(docRef('attendance', `${emp.id}_${today}`), {
+                await docRef('attendance', `${emp.id}_${today}`).set({
                     employeeId: emp.id,
                     employeeName: `${emp.firstName} ${emp.lastName || ''}`,
                     date: today, status: defaultStatus, notes: 'Bulk marked',
-                    updatedAt: serverTimestamp()
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 added++;
             } catch (_) {}
@@ -1999,8 +1994,8 @@ async function updateDocSummaryCards() {
 // ===============================
 async function loadSettings() {
     try {
-        const snap = await getDoc(docRef('settings', 'company'));
-        if (!snap.exists()) return;
+        const snap = await docRef('settings', 'company').get();
+        if (!snap.exists) return;
         const s = snap.data();
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
         set('companyName',    s.companyName);
@@ -2020,7 +2015,7 @@ async function saveSettings() {
         companyGST:     document.getElementById('companyGST').value
     };
     try {
-        await setDoc(docRef('settings', 'company'), payload);
+        await docRef('settings', 'company').set(payload);
         showNotification('✅ Settings saved', 'success');
     } catch (err) { showNotification('❌ Failed to save settings', 'warning'); }
 }
@@ -2029,7 +2024,7 @@ async function changePassword() {
     const newPass = prompt('Enter new password');
     if (!newPass) return;
     try {
-        await setDoc(docRef('settings', 'auth'), { erpPassword: newPass }, { merge: true });
+        await docRef('settings', 'auth').set({ erpPassword: newPass }, { merge: true });
         localStorage.setItem('erpPassword', newPass);
         showNotification('🔑 Password changed', 'success');
     } catch (err) { alert('Failed to change password'); }
@@ -2068,7 +2063,7 @@ function restoreERP() {
 
 async function resetInvoiceCounter() {
     if (!confirm('Reset invoice counter to 1?')) return;
-    await setDoc(docRef('settings', 'company'), { invoiceCounter: 1 }, { merge: true });
+    await docRef('settings', 'company').set({ invoiceCounter: 1 }, { merge: true });
     showNotification('🔄 Invoice counter reset', 'success');
 }
 

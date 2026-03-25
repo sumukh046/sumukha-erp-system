@@ -7,337 +7,173 @@
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
-
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:'Poppins',sans-serif;
-}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
 
 body{
-    height:100vh;
-    overflow:hidden;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    background:linear-gradient(-45deg,#1f4037,#99f2c8,#4facfe,#00f2fe);
-    background-size:400% 400%;
-    animation:gradientShift 18s ease infinite;
-    position:relative;
+  height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:center;
+  background:linear-gradient(-45deg,#1f4037,#99f2c8,#4facfe,#00f2fe);
+  background-size:400% 400%;animation:gradientShift 18s ease infinite;position:relative;
 }
+@keyframes gradientShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
 
-@keyframes gradientShift{
-    0%{background-position:0% 50%;}
-    50%{background-position:100% 50%;}
-    100%{background-position:0% 50%;}
-}
+.stock-bg{position:absolute;width:100%;height:100%;z-index:0;opacity:0.18;pointer-events:none;}
+.stock-line{stroke:white;stroke-width:2;fill:none;stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawLine 8s linear infinite;}
+@keyframes drawLine{0%{stroke-dashoffset:1000;}100%{stroke-dashoffset:0;}}
 
-/* ===== STOCK BACKGROUND ===== */
-
-.stock-bg{
-    position:absolute;
-    width:100%;
-    height:100%;
-    z-index:0;
-    opacity:0.18;
-    pointer-events:none;
-}
-
-.stock-line{
-    stroke:white;
-    stroke-width:2;
-    fill:none;
-    stroke-dasharray:1000;
-    stroke-dashoffset:1000;
-    animation:drawLine 8s linear infinite;
-}
-
-@keyframes drawLine{
-    0%{stroke-dashoffset:1000;}
-    100%{stroke-dashoffset:0;}
-}
-
-.candle{
-    fill:white;
-    opacity:0.25;
-    animation:fadeCandle 4s ease-in-out infinite alternate;
-}
-
-@keyframes fadeCandle{
-    from{opacity:0.15;}
-    to{opacity:0.35;}
-}
-
-/* ===== SYMBOL LAYER ===== */
-
-.symbol-container{
-    position:absolute;
-    width:100%;
-    height:100%;
-    z-index:1;
-    pointer-events:none;
-    overflow:hidden;
-}
-
-.symbol{
-    position:absolute;
-    color:white;
-    opacity:0.25;
-    font-weight:600;
-    text-shadow:0 0 10px rgba(255,255,255,0.6);
-    white-space:nowrap;
-}
-
-@keyframes moveUp{
-    from{transform:translateY(110vh) rotate(0deg);}
-    to{transform:translateY(-20vh) rotate(360deg);}
-}
-@keyframes moveDown{
-    from{transform:translateY(-20vh) rotate(0deg);}
-    to{transform:translateY(110vh) rotate(-360deg);}
-}
-@keyframes moveSide{
-    from{transform:translateX(-20vw) rotate(0deg);}
-    to{transform:translateX(120vw) rotate(360deg);}
-}
-
-/* ===== LOGIN CARD ===== */
+.symbol-container{position:absolute;width:100%;height:100%;z-index:1;pointer-events:none;overflow:hidden;}
+.symbol{position:absolute;color:white;opacity:0.25;font-weight:600;text-shadow:0 0 10px rgba(255,255,255,0.6);white-space:nowrap;}
+@keyframes moveUp{from{transform:translateY(110vh);}to{transform:translateY(-20vh);}}
 
 .login-container{
-    position:relative;
-    z-index:2;
-    width:420px;
-    padding:55px 45px;
-    border-radius:28px;
-    background:rgba(255,255,255,0.15);
-    backdrop-filter:blur(45px);
-    border:1px solid rgba(255,255,255,0.4);
-    box-shadow:0 40px 100px rgba(0,0,0,0.5);
-    animation:cardEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
-    transform:scale(0.85) translateY(40px);
-    opacity:0;
+  position:relative;z-index:2;width:420px;padding:55px 45px;border-radius:28px;
+  background:rgba(255,255,255,0.15);backdrop-filter:blur(45px);
+  border:1px solid rgba(255,255,255,0.4);box-shadow:0 40px 100px rgba(0,0,0,0.5);
+  animation:cardEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards;
+  transform:scale(0.85) translateY(40px);opacity:0;
 }
+@keyframes cardEnter{to{transform:scale(1) translateY(0);opacity:1;}}
 
-@keyframes cardEnter{
-    to{
-        transform:scale(1) translateY(0);
-        opacity:1;
-    }
-}
+.logo{text-align:center;margin-bottom:35px;}
+.logo img{width:160px;height:auto;}
+.logo h2{margin-top:15px;font-size:26px;letter-spacing:2px;font-weight:600;color:white;}
 
-/* ===== LOGO ===== */
+.input-group{position:relative;margin-bottom:28px;}
+.input-group input{width:100%;padding:18px 20px;border-radius:16px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.08);color:white;font-size:15px;outline:none;transition:all 0.4s cubic-bezier(0.16,1,0.3,1);}
+.input-group label{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.7);font-size:14px;pointer-events:none;transition:all 0.4s cubic-bezier(0.16,1,0.3,1);}
+.input-group input:focus{border-color:#ffffff;background:rgba(255,255,255,0.15);box-shadow:0 0 0 4px rgba(255,255,255,0.15),0 10px 30px rgba(0,0,0,0.3);transform:translateY(-2px);}
+.input-group input:focus+label,.input-group input:valid+label{top:-8px;left:14px;font-size:12px;background:rgba(0,0,0,0.4);padding:2px 8px;border-radius:8px;color:white;}
+.toggle-password{position:absolute;right:18px;top:50%;transform:translateY(-50%);cursor:pointer;display:flex;align-items:center;}
 
-.logo{
-    text-align:center;
-    margin-bottom:35px;
-}
+.login-container button{width:100%;padding:15px;border-radius:16px;border:none;background:linear-gradient(90deg,#4facfe,#00f2fe);color:white;font-weight:600;font-size:15px;cursor:pointer;transition:0.3s ease;}
+.login-container button:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,0.5);}
+.login-container button:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
 
-.logo img{
-    width:160px;
-    height:auto;
-}
+.error-msg{color:#ff6b6b;font-size:13px;text-align:center;margin-bottom:16px;min-height:18px;background:rgba(255,0,0,0.1);border-radius:8px;padding:8px;display:none;}
+.error-msg.visible{display:block;}
 
-.logo h2{
-    margin-top:15px;
-    font-size:26px;
-    letter-spacing:2px;
-    font-weight:600;
-    color:white;
-}
-
-/* ===== FLOATING LABEL INPUTS ===== */
-
-.input-group{
-    position:relative;
-    margin-bottom:28px;
-}
-
-.input-group input{
-    width:100%;
-    padding:18px 20px;
-    border-radius:16px;
-    border:1px solid rgba(255,255,255,0.3);
-    background:rgba(255,255,255,0.08);
-    color:white;
-    font-size:15px;
-    outline:none;
-    transition:all 0.4s cubic-bezier(0.16,1,0.3,1);
-}
-
-.input-group label{
-    position:absolute;
-    left:20px;
-    top:50%;
-    transform:translateY(-50%);
-    color:rgba(255,255,255,0.7);
-    font-size:14px;
-    pointer-events:none;
-    transition:all 0.4s cubic-bezier(0.16,1,0.3,1);
-}
-
-.input-group input:focus{
-    border-color:#ffffff;
-    background:rgba(255,255,255,0.15);
-    box-shadow:0 0 0 4px rgba(255,255,255,0.15), 0 10px 30px rgba(0,0,0,0.3);
-    transform:translateY(-2px);
-}
-
-.input-group input:focus + label,
-.input-group input:valid + label{
-    top:-8px;
-    left:14px;
-    font-size:12px;
-    background:rgba(0,0,0,0.4);
-    padding:2px 8px;
-    border-radius:8px;
-    color:white;
-}
-
-.toggle-password{
-    position:absolute;
-    right:18px;
-    top:50%;
-    transform:translateY(-50%);
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-}
-
-/* ===== FORGOT ===== */
-
-.forgot{
-    text-align:right;
-    margin-top:-10px;
-    margin-bottom:20px;
-}
-
-.forgot a{
-    font-size:13px;
-    color:white;
-    text-decoration:none;
-}
-
-/* ===== BUTTON ===== */
-
-.login-container button{
-    width:100%;
-    padding:15px;
-    border-radius:16px;
-    border:none;
-    background:linear-gradient(90deg,#4facfe,#00f2fe);
-    color:white;
-    font-weight:600;
-    font-size:15px;
-    cursor:pointer;
-    transition:0.3s ease;
-}
-
-.login-container button:hover{
-    transform:translateY(-4px);
-    box-shadow:0 20px 40px rgba(0,0,0,0.5);
-}
-
-.footer{
-    text-align:center;
-    margin-top:18px;
-    font-size:12px;
-    color:white;
-}
+.footer{text-align:center;margin-top:18px;font-size:12px;color:white;}
 </style>
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 
 <body>
 
-<!-- STOCK BACKGROUND -->
 <svg class="stock-bg" viewBox="0 0 1200 600" preserveAspectRatio="none">
-<polyline class="stock-line"
-points="0,420 120,380 240,400 360,300 480,340 600,280 720,320 840,240 960,260 1080,190 1200,160"/>
+  <polyline class="stock-line" points="0,420 120,380 240,400 360,300 480,340 600,280 720,320 840,240 960,260 1080,190 1200,160"/>
 </svg>
-
 <div class="symbol-container" id="symbols"></div>
 
 <div class="login-container">
-    <div class="logo">
-        <img src="logo.png" alt="Logo">
-        <h2>Welcome</h2>
-    </div>
+  <div class="logo">
+    <img src="logo.png" alt="Sumukha Logo" onerror="this.style.display='none'">
+    <h2>Welcome</h2>
+  </div>
 
-    <div class="input-group">
-        <input type="text" id="username" required>
-        <label>Username</label>
-    </div>
+  <div class="input-group">
+    <input type="email" id="email" required autocomplete="username">
+    <label>Email</label>
+  </div>
 
-    <div class="input-group">
-        <input type="password" id="password" required>
-        <label>Password</label>
+  <div class="input-group">
+    <input type="password" id="password" required autocomplete="current-password">
+    <label>Password</label>
+    <span class="toggle-password" onclick="togglePassword()">👁</span>
+  </div>
 
-        <span class="toggle-password" onclick="togglePassword()">
-            👁
-        </span>
-    </div>
+  <div class="error-msg" id="errorMsg"></div>
 
-    <div class="forgot">
-        <a href="#">Forgot Password?</a>
-    </div>
+  <button id="loginBtn" onclick="loginUser()">Access Dashboard</button>
 
-    <button onclick="loginUser()">Access Dashboard</button>
-
-    <div class="footer">
-        Version 2.0 • Enterprise Secure Access
-    </div>
+  <div class="footer">Version 2.0 • Enterprise Secure Access</div>
 </div>
 
 <script>
+const firebaseConfig = {
+  apiKey:            "AIzaSyBnohPOjGT5Cq1xTW0Rruxok89JwsvEyjU",
+  authDomain:        "sumukha-erp.firebaseapp.com",
+  projectId:         "sumukha-erp",
+  storageBucket:     "sumukha-erp.firebasestorage.app",
+  messagingSenderId: "927625460940",
+  appId:             "1:927625460940:web:bc09a6fe6b39cc2b55d669"
+};
 
-/* ===== LOGIN AUTH ===== */
-function loginUser(){
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
+// Auto-redirect if already signed in
+auth.onAuthStateChanged(user => {
+  if (user) {
+    localStorage.setItem('erpUser', 'loggedIn');
+    window.location.href = 'index.html';
+  }
+});
 
-    const savedPass = localStorage.getItem("erpPassword") || "admin123";
+async function loginUser() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn      = document.getElementById('loginBtn');
+  const errEl    = document.getElementById('errorMsg');
 
-    if(username === "admin" && password === savedPass){
+  errEl.classList.remove('visible');
 
-        localStorage.setItem("erpUser","loggedIn");
+  if (!email || !password) {
+    showError('Please enter your email and password.');
+    return;
+  }
 
-        window.location.href = "index.html"; // redirect to dashboard
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
 
-    }else{
-
-        alert("Invalid login");
-
-    }
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    localStorage.setItem('erpUser', 'loggedIn');
+    window.location.href = 'index.html';
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Access Dashboard';
+    const msgs = {
+      'auth/user-not-found':   'No account found with this email.',
+      'auth/wrong-password':   'Incorrect password. Please try again.',
+      'auth/invalid-email':    'Please enter a valid email address.',
+      'auth/too-many-requests':'Too many attempts. Please try again later.',
+      'auth/invalid-credential': 'Invalid email or password.'
+    };
+    showError(msgs[err.code] || 'Login failed. Please try again.');
+  }
 }
 
-/* ===== PASSWORD TOGGLE ===== */
-function togglePassword(){
-    const pass = document.getElementById("password");
-    pass.type = pass.type === "password" ? "text" : "password";
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('visible');
 }
 
-/* ===== AUTO REDIRECT IF ALREADY LOGGED IN ===== */
-if(localStorage.getItem("erpUser") === "loggedIn"){
-    window.location.href = "index.html";
+function togglePassword() {
+  const p = document.getElementById('password');
+  p.type = p.type === 'password' ? 'text' : 'password';
 }
 
-/* ===== SYMBOL BACKGROUND ===== */
-const container = document.getElementById("symbols");
-const items = ["0","1","2","3","4","5","6","7","8","9","∑","π","∞","√","Δ","÷","×"];
-function createSymbol(){
-    const span=document.createElement("span");
-    span.classList.add("symbol");
-    span.innerText=items[Math.floor(Math.random()*items.length)];
-    span.style.left=Math.random()*100+"vw";
-    span.style.fontSize=(25+Math.random()*40)+"px";
-    span.style.animation="moveUp "+(18+Math.random()*10)+"s linear";
-    container.appendChild(span);
-    setTimeout(()=>span.remove(),25000);
-}
-setInterval(createSymbol,900);
+// Enter key support
+document.addEventListener('keydown', e => { if (e.key === 'Enter') loginUser(); });
 
+// Floating symbols
+const container = document.getElementById('symbols');
+const items = ['0','1','2','3','4','5','6','7','8','9','∑','π','∞','√','Δ','÷','×'];
+function createSymbol() {
+  const span = document.createElement('span');
+  span.classList.add('symbol');
+  span.innerText = items[Math.floor(Math.random() * items.length)];
+  span.style.left = Math.random() * 100 + 'vw';
+  span.style.fontSize = (25 + Math.random() * 40) + 'px';
+  span.style.animation = 'moveUp ' + (18 + Math.random() * 10) + 's linear';
+  container.appendChild(span);
+  setTimeout(() => span.remove(), 25000);
+}
+setInterval(createSymbol, 900);
 </script>
-
 </body>
 </html>
