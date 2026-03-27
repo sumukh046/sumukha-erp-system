@@ -19,19 +19,19 @@ function viewEmployee(id) {
             <button onclick="closeProfile()"
                 style="position:absolute;top:10px;right:10px;background:#dc3545;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;">✕</button>
             <h3 style="margin-top:0;">Employee Profile</h3>
-            <p><b>Name:</b> ${emp.firstName} ${emp.middleName || ''} ${emp.lastName || ''}</p>
-            <p><b>Age:</b> ${emp.age || '-'}</p>
-            <p><b>Gender:</b> ${emp.gender || '-'}</p>
-            <p><b>Mobile:</b> ${emp.mobile || '-'}</p>
-            <p><b>Guardian Phone:</b> ${emp.guardianPhone || '-'}</p>
-            <p><b>Address:</b> ${emp.address || '-'}</p>
-            <p><b>Native Place:</b> ${emp.nativePlace || '-'}</p>
-            <p><b>Languages:</b> ${emp.languages || '-'}</p>
-            <p><b>Role:</b> ${emp.role || '-'}</p>
-            <p><b>Aadhar:</b> ${emp.aadhar || '-'}</p>
-            <p><b>Aadhar Verified:</b> ${emp.aadharVerified || 'No'}</p>
-            <p><b>Status:</b> ${emp.status || '-'}</p>
-            <p><b>Working At:</b> ${emp.workPlace || '-'}</p>
+            <p><b>Name:</b> ${escapeHtml(`${emp.firstName} ${emp.middleName || ''} ${emp.lastName || ''}`.trim())}</p>
+            <p><b>Age:</b> ${escapeHtml(emp.age || '-')}</p>
+            <p><b>Gender:</b> ${escapeHtml(emp.gender || '-')}</p>
+            <p><b>Mobile:</b> ${escapeHtml(emp.mobile || '-')}</p>
+            <p><b>Guardian Phone:</b> ${escapeHtml(emp.guardianPhone || '-')}</p>
+            <p><b>Address:</b> ${escapeHtml(emp.address || '-')}</p>
+            <p><b>Native Place:</b> ${escapeHtml(emp.nativePlace || '-')}</p>
+            <p><b>Languages:</b> ${escapeHtml(emp.languages || '-')}</p>
+            <p><b>Role:</b> ${escapeHtml(emp.role || '-')}</p>
+            <p><b>Aadhar:</b> ${escapeHtml(emp.aadhar || '-')}</p>
+            <p><b>Aadhar Verified:</b> ${escapeHtml(emp.aadharVerified || 'No')}</p>
+            <p><b>Status:</b> ${escapeHtml(emp.status || '-')}</p>
+            <p><b>Working At:</b> ${escapeHtml(emp.workPlace || '-')}</p>
         `;
         const section = document.getElementById('allEmployees');
         if (section) section.appendChild(panel);

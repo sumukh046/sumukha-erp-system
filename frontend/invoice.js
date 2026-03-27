@@ -9,8 +9,14 @@ let customerChoicesInstance = null;
 let appInvoices = [];
 let appCustomers = [];
 const InvoiceCore = (function () {
+    let invoiceCounter = parseInt(localStorage.getItem("invoiceCounter"), 10);
+    if (!Number.isFinite(invoiceCounter) || invoiceCounter < 1) invoiceCounter = 1;
 
-    let invoiceCounter = parseInt(localStorage.getItem("invoiceCounter")) || 1;
+    function setCounter(nextCounter) {
+        const parsed = parseInt(nextCounter, 10);
+        invoiceCounter = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+        localStorage.setItem("invoiceCounter", invoiceCounter);
+    }
 
     function generateInvoiceNumber() {
         const today = new Date();
@@ -24,15 +30,19 @@ const InvoiceCore = (function () {
         return invoiceNo;
     }
 
-    return { generateInvoiceNumber };
+    return { generateInvoiceNumber, setCounter, getCounter: () => invoiceCounter };
 
 })();
+
+if (typeof window !== "undefined") {
+    window.InvoiceCore = InvoiceCore;
+}
 
 // ===============================
 // CUSTOMER LOCKING HELPER
 // ===============================
 function toggleCustomerLock(isLocked) {
-    const fields = ["billName","billAddress","billState","invoiceDate","invoiceCustomerPhone"];
+    const fields = ["billName","billAddress","billState","invoiceCustomerPhone"];
 
     fields.forEach(id => {
         const el = document.getElementById(id);
@@ -264,9 +274,10 @@ async function generateInvoicePDF(invoiceData = null, action = 'download') {
         invoiceDate = document.getElementById("invoiceDate")?.value || new Date().toISOString().slice(0,10);
         billAddress = document.getElementById("billAddress")?.value || "";
         
-        const selectedIndex = document.getElementById("customerSelect").value;
+        const selectedCustomerId = document.getElementById("customerSelect")?.value || "";
         const manualName = document.getElementById("billName").value;
-        customerName = (selectedIndex !== "" && appCustomers[selectedIndex]) ? appCustomers[selectedIndex].name : (manualName || "Walk-in");
+        const selectedCustomer = (window._appCustomers || []).find(cust => cust.id === selectedCustomerId);
+        customerName = selectedCustomer?.name || manualName || "Walk-in";
 
         document.querySelectorAll("#invoiceItemsBody tr").forEach(row => {
             const desc = row.querySelector(".desc")?.value || "";
@@ -485,7 +496,7 @@ async function generateInvoicePDF(invoiceData = null, action = 'download') {
 // SAVE INVOICE
 // ===============================
 
-function saveInvoiceRecord() {
+function legacySaveInvoiceRecord() {
     const invoiceNo = document.getElementById("invoiceNumber").value;
     const customerName = document.getElementById("billName").value;
     const customerPhone = document.getElementById("invoiceCustomerPhone")?.value || "";
@@ -574,7 +585,7 @@ function saveInvoiceRecord() {
 // HISTORY (WITH VIEW & INSTANT COLOR)
 // ===============================
 
-function loadInvoiceHistory() {
+function legacyLoadInvoiceHistory() {
     const tableBody = document.querySelector("#invoiceHistoryTable tbody");
     if (!tableBody) return;
     tableBody.innerHTML = "";
@@ -623,11 +634,11 @@ function loadInvoiceHistory() {
     });
 }
 
-function regenerateInvoice(index) {
+function legacyRegenerateInvoice(index) {
     generateInvoicePDF(appInvoices[index], 'download');
 }
 
-function deleteInvoice(index) {
+function legacyDeleteInvoice(index) {
     appInvoices.splice(index, 1);
     localStorage.setItem("savedInvoices", JSON.stringify(appInvoices));
     showNotification("🗑 Invoice deleted","warning");
@@ -639,7 +650,7 @@ function deleteInvoice(index) {
     updateDashboardAnalytics(); 
 }
 
-function editInvoice(index) {
+function legacyEditInvoice(index) {
     const inv = appInvoices[index];
     if (!inv) return;
 
@@ -683,7 +694,7 @@ function editInvoice(index) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function updateInvoiceStatus(index, newStatus, selectElement) {
+function legacyUpdateInvoiceStatus(index, newStatus, selectElement) {
     if (!appInvoices[index]) return;
 
     appInvoices[index].status = newStatus;
@@ -734,7 +745,8 @@ function resetInvoiceForm() {
     // 🔴 FIXED: Fully destroys and reconstructs the Choices.js dropdown so the ghost name is cleared completely
     loadCustomerDropdown();
 
-    toggleCustomerLock(true);
+    toggleCustomerLock(false);
+    if (typeof window !== 'undefined') window._editingInvoiceId = null;
 
     const tbody = document.getElementById("invoiceItemsBody");
     if (tbody) tbody.innerHTML = ''; 
@@ -766,7 +778,7 @@ function resetInvoiceForm() {
     });
 }
 
-function checkOverdueInvoices() {
+function legacyCheckOverdueInvoices() {
     const today = new Date().toISOString().slice(0,10);
     let needsSaving = false;
 

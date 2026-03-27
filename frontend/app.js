@@ -15,6 +15,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 // ── Firestore helpers ──────────────────────────────────────
 const col    = name     => db.collection(name);
@@ -51,20 +52,215 @@ async function queryItems(colName, field, op, value) {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
+}
+
+function sanitizeFileName(name) {
+    const cleaned = String(name || 'file').replace(/[^\w.-]+/g, '_');
+    return cleaned || 'file';
+}
+
+function setSelectOptions(select, options, placeholder) {
+    if (!select) return;
+    select.innerHTML = '';
+
+    const firstOption = document.createElement('option');
+    firstOption.value = '';
+    firstOption.textContent = placeholder;
+    select.appendChild(firstOption);
+
+    options.forEach(optionData => {
+        const opt = document.createElement('option');
+        opt.value = optionData.value;
+        opt.textContent = optionData.label;
+        if (optionData.dataset) {
+            Object.entries(optionData.dataset).forEach(([key, value]) => {
+                opt.dataset[key] = value;
+            });
+        }
+        select.appendChild(opt);
+    });
+}
+
+async function uploadFileToStorage(file, folder, prefix = 'file') {
+    const safeFolder = String(folder || 'uploads').replace(/[^a-zA-Z0-9/_-]+/g, '_');
+    const safePrefix = sanitizeFileName(prefix);
+    const safeName = sanitizeFileName(file?.name);
+    const storagePath = `${safeFolder}/${Date.now()}-${safePrefix}-${safeName}`;
+    const ref = storage.ref().child(storagePath);
+    const snapshot = await ref.put(file, { contentType: file?.type || 'application/octet-stream' });
+    const downloadURL = await snapshot.ref.getDownloadURL();
+    return { storagePath, downloadURL };
+}
+
+async function deleteStoredFile(storagePath) {
+    if (!storagePath) return;
+    try {
+        await storage.ref().child(storagePath).delete();
+    } catch (err) {
+        if (err?.code !== 'storage/object-not-found') throw err;
+    }
+}
+
+function getDocumentSource(doc) {
+    const remoteUrl = typeof doc?.downloadURL === 'string' ? doc.downloadURL.trim() : '';
+    if (/^https?:\/\//i.test(remoteUrl)) return remoteUrl;
+
+    const legacyDataUrl = typeof doc?.base64 === 'string' ? doc.base64.trim() : '';
+    if (legacyDataUrl.startsWith('data:')) return legacyDataUrl;
+
+    return '';
+}
+
+async function syncInvoiceCounterFromSettings() {
+    try {
+        const snap = await docRef('settings', 'company').get();
+        const counter = parseInt(snap.data()?.invoiceCounter, 10);
+        if (Number.isFinite(counter) && counter > 0) {
+            localStorage.setItem('invoiceCounter', String(counter));
+            if (window.InvoiceCore && typeof window.InvoiceCore.setCounter === 'function') {
+                window.InvoiceCore.setCounter(counter);
+            }
+        }
+    } catch (err) {
+        console.error('Invoice counter sync error:', err);
+    }
+}
+
+async function persistInvoiceCounterSetting() {
+    try {
+        const counter = parseInt(localStorage.getItem('invoiceCounter'), 10);
+        if (Number.isFinite(counter) && counter > 0) {
+            await docRef('settings', 'company').set({ invoiceCounter: counter }, { merge: true });
+        }
+    } catch (err) {
+        console.error('Invoice counter persist error:', err);
+    }
+}
+
 // ===============================
-// AUTH GUARD
+// ROLE-BASED ACCESS CONTROL (RBAC)
 // ===============================
-firebase.auth().onAuthStateChanged(function(user) {
+
+// Sections completely blocked for staff
+const ADMIN_ONLY_SECTIONS = [
+    'salarySection', 'financeSection',
+    'allInvoices',
+    'leaveSection', 'attendanceSection'
+];
+
+window._userRole = null;
+
+// Auth guard + role loader
+firebase.auth().onAuthStateChanged(async function(user) {
     if (!user) {
         localStorage.removeItem('erpUser');
         window.location.href = 'login.html';
+        return;
     }
+    localStorage.setItem('erpUser', 'loggedIn');
+
+    // Load role from Firestore users collection (keyed by UID)
+    try {
+        const snap = await docRef('users', user.uid).get();
+        window._userRole = snap.exists ? (snap.data().role || 'staff') : 'staff';
+    } catch (_) {
+        window._userRole = 'staff';
+    }
+
+    // Show first letter of email in topbar avatar
+    const avatarEl = document.querySelector('.topbar-avatar');
+    if (avatarEl) {
+        avatarEl.textContent = (user.email || 'A')[0].toUpperCase();
+        avatarEl.title = user.email;
+    }
+
+    applyRoleUI(window._userRole);
 });
+
+function applyRoleUI(role) {
+    const brand = document.querySelector('.sidebar-brand-sub');
+
+    if (role === 'admin') {
+        if (brand) brand.textContent = 'Admin Access'; // ✅ FIX
+        return;
+    }
+
+    // staff restrictions
+    const hiddenSections = [
+        'salarySection', 'financeSection', 'leaveSection', 'attendanceSection'
+    ];
+
+    const hiddenInvoiceItems = ['allInvoices'];
+
+    document.querySelectorAll('.nav-item, .nav-parent').forEach(btn => {
+        const oc = btn.getAttribute('onclick') || '';
+        if (hiddenSections.some(s => oc.includes("'" + s + "'"))) {
+            btn.style.display = 'none';
+        }
+        if (hiddenInvoiceItems.some(s => oc.includes("'" + s + "'"))) {
+            btn.style.display = 'none';
+        }
+    });
+
+    if (brand) brand.textContent = 'Staff Access';
+}
+
+function isAllowed(sectionId) {
+    if (window._userRole === 'admin') return true;
+    return !ADMIN_ONLY_SECTIONS.includes(sectionId);
+}
+
+function showAccessDenied() {
+    document.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
+    let denied = document.getElementById('accessDeniedSection');
+    if (!denied) {
+        denied = document.createElement('section');
+        denied.id = 'accessDeniedSection';
+        denied.className = 'sub-section active';
+        denied.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                min-height:60vh;text-align:center;padding:40px;">
+                <div style="font-size:64px;margin-bottom:20px;">&#x1F512;</div>
+                <h2 style="font-size:24px;font-weight:700;color:var(--text-1);margin:0 0 10px;">Access Denied</h2>
+                <p style="color:var(--text-2);font-size:15px;max-width:380px;line-height:1.6;margin:0 0 28px;">
+                    You don&#39;t have permission to view this section.<br>
+                    Please contact your administrator.
+                </p>
+                <button onclick="showSection('dashboard')"
+                    style="padding:12px 28px;background:var(--brand);color:white;border:none;
+                    border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">
+                    &#8592; Back to Dashboard
+                </button>
+            </div>`;
+        document.querySelector('.content')?.appendChild(denied);
+    } else {
+        denied.classList.add('active');
+    }
+    const titleEl = document.getElementById('topbarTitle');
+    if (titleEl) titleEl.textContent = '🔒 Access Denied';
+}
 
 // ===============================
 // SECTION ROUTING
 // ===============================
 function showSection(id) {
+    // Role check — block restricted sections for staff
+    if (!isAllowed(id)) {
+        showAccessDenied();
+        return;
+    }
+    // Hide access denied panel if visible
+    const denied = document.getElementById('accessDeniedSection');
+    if (denied) denied.classList.remove('active');
+
     document.querySelectorAll('.sub-section').forEach(sec => sec.classList.remove('active'));
     if (!['addEmployee','allEmployees','employeeStatus','documentsSection'].includes(id)) {
         const empMenu = document.getElementById('employeeMenu');
@@ -190,16 +386,29 @@ function toBase64(file) {
 // ===============================
 async function updateDashboard() {
     try {
-        const [employees, invoices, customers] = await Promise.all([
-            getAll('employees'),
-            getAll('invoices'),
-            getAll('customers')
-        ]);
+        const isAdmin = window._userRole === 'admin';
 
+        // Show/hide invoice, customer and chart blocks based on role
+        const invoiceBlock  = document.getElementById('invoiceOverviewBlock');
+        const customerBlock = document.getElementById('customerOverviewBlock');
+        const chartBlock    = document.getElementById('revenueChartBlock');
+        if (invoiceBlock)  invoiceBlock.style.display  = isAdmin ? '' : 'none';
+        if (customerBlock) customerBlock.style.display = isAdmin ? '' : 'none';
+        if (chartBlock)    chartBlock.style.display    = isAdmin ? '' : 'none';
+
+        const employees = await getAll('employees');
         document.getElementById('dashEmp').innerText     = employees.length;
         document.getElementById('dashWorking').innerText = employees.filter(e => e.status === 'Working').length;
         document.getElementById('dashLeave').innerText   = employees.filter(e => e.status === 'On Leave').length;
         document.getElementById('dashLeft').innerText    = employees.filter(e => e.status === 'Left Company').length;
+
+        // Staff only sees employee overview
+        if (!isAdmin) return;
+
+        const [invoices, customers] = await Promise.all([
+            getAll('invoices'),
+            getAll('customers')
+        ]);
 
         let totalRevenue = 0, pendingAmount = 0, draftCount = 0;
         let paid = 0, pending = 0, overdue = 0, draft = 0;
@@ -263,9 +472,10 @@ async function addEmployee() {
     if (!firstName) { alert('First Name is required'); return; }
 
     const fileInput = document.getElementById('aadharFile');
-    let aadharFile  = '';
-    if (fileInput && fileInput.files[0]) {
-        aadharFile = await toBase64(fileInput.files[0]);
+    const aadharUpload = fileInput?.files?.[0] || null;
+    if (aadharUpload && aadharUpload.size / 1024 / 1024 > 10) {
+        showNotification('⚠ Aadhar file must be under 10 MB', 'warning');
+        return;
     }
 
     const payload = {
@@ -283,7 +493,6 @@ async function addEmployee() {
         address:        document.getElementById('address').value.trim(),
         aadhar:         document.getElementById('aadhar').value.trim(),
         aadharVerified: document.getElementById('aadharVerified').value,
-        aadharFile,
         status: 'Active',
         workPlace: ''
     };
@@ -291,22 +500,37 @@ async function addEmployee() {
     try {
         const newEmp = await addItem('employees', payload);
 
-        // Also save aadhar file to documents collection
-        if (aadharFile && fileInput && fileInput.files[0]) {
-            const file = fileInput.files[0];
-            await addItem('documents', {
-                employeeId:   newEmp.id,
-                employeeName: `${newEmp.firstName} ${newEmp.lastName || ''}`.trim(),
-                docType:      'Aadhar Card',
-                fileName:     file.name,
-                fileType:     file.type,
-                fileSize:     file.size,
-                base64:       aadharFile,
-                notes:        'Uploaded during employee registration'
-            });
+        let documentUploadFailed = false;
+        if (aadharUpload) {
+            try {
+                const uploaded = await uploadFileToStorage(
+                    aadharUpload,
+                    `employee-documents/${newEmp.id}`,
+                    'aadhar'
+                );
+                await addItem('documents', {
+                    employeeId:   newEmp.id,
+                    employeeName: `${newEmp.firstName} ${newEmp.lastName || ''}`.trim(),
+                    docType:      'Aadhar Card',
+                    fileName:     aadharUpload.name,
+                    fileType:     aadharUpload.type,
+                    fileSize:     aadharUpload.size,
+                    storagePath:  uploaded.storagePath,
+                    downloadURL:  uploaded.downloadURL,
+                    notes:        'Uploaded during employee registration'
+                });
+            } catch (uploadErr) {
+                documentUploadFailed = true;
+                console.error('Aadhar upload error:', uploadErr);
+            }
         }
 
-        showNotification('✅ Employee added successfully', 'success');
+        showNotification(
+            documentUploadFailed
+                ? '⚠ Employee added, but Aadhar upload failed'
+                : '✅ Employee added successfully',
+            documentUploadFailed ? 'warning' : 'success'
+        );
         ['firstName','middleName','lastName','age','mobile','guardianPhone',
          'guardianName','nativePlace','languages','address','aadhar'].forEach(id => {
             const el = document.getElementById(id);
@@ -325,31 +549,111 @@ async function addEmployee() {
 // ===============================
 // EMPLOYEES — LIST
 // ===============================
+window._allEmployeesCache = [];
+
 async function loadEmployees() {
-    const tbody = document.getElementById('employeeTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">Loading...</td></tr>';
+    const grid = document.getElementById('employeeCardsGrid');
+    if (!grid) return;
+    grid.innerHTML = '<p style="color:var(--text-2);padding:20px;text-align:center;">Loading...</p>';
     try {
         const employees = await getAll('employees');
-        tbody.innerHTML = '';
-        if (employees.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px;">No employees found.</td></tr>';
-            return;
-        }
-        employees.forEach(emp => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${emp.firstName}</td>
-                    <td>${emp.lastName || '-'}</td>
-                    <td>${emp.role || '-'}</td>
-                    <td>${emp.mobile || '-'}</td>
-                    <td><span class="status-badge status-${(emp.status || 'active').toLowerCase().replace(/ /g, '-')}">${emp.status || 'Active'}</span></td>
-                </tr>
-            `;
-        });
+        window._allEmployeesCache = employees;
+        renderEmployeeCards(employees);
     } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c00;padding:20px;">⚠ Could not load employees.</td></tr>';
+        grid.innerHTML = '<p style="color:#c00;padding:20px;text-align:center;">⚠ Could not load employees.</p>';
     }
+}
+
+function filterEmployeeCards() {
+    const q      = (document.getElementById('empSearchInput')?.value || '').toLowerCase();
+    const status = document.getElementById('empStatusFilter')?.value || '';
+    const list   = window._allEmployeesCache || [];
+    const filtered = list.filter(emp => {
+        const name = `${emp.firstName} ${emp.lastName || ''} ${emp.role || ''}`.toLowerCase();
+        const matchQ = !q || name.includes(q);
+        const matchS = !status || (emp.status || '') === status;
+        return matchQ && matchS;
+    });
+    renderEmployeeCards(filtered);
+}
+
+function renderEmployeeCards(employees) {
+    const grid = document.getElementById('employeeCardsGrid');
+    const countEl = document.getElementById('empCountLabel');
+    if (!grid) return;
+    if (countEl) countEl.textContent = `${employees.length} employee${employees.length !== 1 ? 's' : ''} found`;
+
+    if (employees.length === 0) {
+        grid.innerHTML = '<p style="color:var(--text-2);padding:40px;text-align:center;grid-column:1/-1;">No employees found.</p>';
+        return;
+    }
+
+    const statusColor = {
+        'Working':      { bg:'#dcfce7', color:'#16a34a', border:'#bbf7d0' },
+        'Active':       { bg:'#dbeafe', color:'#2563eb', border:'#bfdbfe' },
+        'On Leave':     { bg:'#fff7ed', color:'#ea580c', border:'#fed7aa' },
+        'Pending':      { bg:'#fefce8', color:'#ca8a04', border:'#fde68a' },
+        'Left Company': { bg:'#fef2f2', color:'#dc2626', border:'#fecaca' },
+    };
+
+    grid.innerHTML = employees.map(emp => {
+        const st  = emp.status || 'Active';
+        const sc  = statusColor[st] || { bg:'#f1f5f9', color:'#64748b', border:'#e2e8f0' };
+        const initials = ((emp.firstName||'')[0]||'') + ((emp.lastName||'')[0]||'');
+        const avatarColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444'];
+        const avatarBg = avatarColors[(emp.firstName?.charCodeAt(0)||0) % avatarColors.length];
+        return `
+        <div class="emp-card" id="empcard-${emp.id}" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:box-shadow 0.2s;">
+          <div style="padding:18px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
+            <div style="width:48px;height:48px;border-radius:50%;background:${avatarBg};color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0;">${escapeHtml(initials.toUpperCase() || '?')}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:15px;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(`${emp.firstName} ${emp.lastName||''}`.trim())}</div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:2px;">${escapeHtml(emp.role||'—')}</div>
+            </div>
+            <span style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:${sc.bg};color:${sc.color};border:1px solid ${sc.border};white-space:nowrap;">${escapeHtml(st)}</span>
+          </div>
+          <div style="padding:14px 20px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="font-size:12px;color:var(--text-2);">📱 ${escapeHtml(emp.mobile||'—')}</div>
+            <div style="font-size:12px;color:var(--text-2);">📍 ${escapeHtml(emp.nativePlace||'—')}</div>
+          </div>
+          <div style="padding:0 20px 14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="toggleEmpDetails('${emp.id}')" 
+              style="flex:1;padding:8px;background:var(--surface-2,#f8fafc);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;color:var(--text-2);cursor:pointer;">
+              👁 View Details
+            </button>
+            <button onclick="downloadSingleEmployee('${emp.id}')"
+              style="padding:8px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;font-weight:600;color:#2563eb;cursor:pointer;">
+              ⬇ PDF
+            </button>
+            ${window._userRole === 'admin' ? `<button onclick="deleteEmployee('${emp.id}')" style="padding:8px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:600;color:#dc2626;cursor:pointer;">🗑</button>` : ''}
+          </div>
+          <div id="empdetails-${emp.id}" style="display:none;padding:0 20px 18px;border-top:1px solid var(--border);margin-top:0;">
+            <div style="padding-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              ${[
+                ['Age', emp.age], ['Gender', emp.gender],
+                ['Guardian', emp.guardianName], ['Guardian Ph', emp.guardianPhone],
+                ['Languages', emp.languages], ['Address', emp.address],
+                ['Aadhar', emp.aadhar], ['Verified', emp.aadharVerified],
+                ['Work Place', emp.workPlace],
+              ].map(([label, val]) => val ? `
+                <div style="background:var(--surface-2,#f8fafc);border-radius:8px;padding:8px 10px;">
+                  <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">${label}</div>
+                  <div style="font-size:13px;color:var(--text-1);font-weight:500;">${escapeHtml(String(val))}</div>
+                </div>` : '').join('')}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleEmpDetails(id) {
+    const el  = document.getElementById(`empdetails-${id}`);
+    const btn = el?.previousElementSibling?.querySelector('button');
+    if (!el) return;
+    const open = el.style.display === 'none';
+    el.style.display = open ? 'block' : 'none';
+    const viewBtn = document.querySelector(`#empcard-${id} button[onclick*="toggleEmpDetails"]`);
+    if (viewBtn) viewBtn.textContent = open ? '🔼 Hide Details' : '👁 View Details';
 }
 
 // ===============================
@@ -408,47 +712,73 @@ async function downloadPDF() {
 // EMPLOYEE STATUS TABLE
 // ===============================
 async function loadStatusTable() {
-    const table = document.getElementById('statusTable');
-    if (!table) return;
-    table.innerHTML = `
-        <thead><tr><th>NAME</th><th>STATUS</th><th>CHANGE</th><th>WORKING DETAILS</th></tr></thead>
-        <tbody id="statusTableBody"></tbody>
-    `;
-    const tbody = document.getElementById('statusTableBody');
+    const container = document.getElementById('statusCardsContainer');
+    if (!container) return;
+    container.innerHTML = '<p style="color:var(--text-2);padding:20px;text-align:center;">Loading...</p>';
+
+    const statusColor = {
+        'Working':      { bg:'#dcfce7', color:'#16a34a', border:'#bbf7d0', dot:'#16a34a' },
+        'Active':       { bg:'#dbeafe', color:'#2563eb', border:'#bfdbfe', dot:'#2563eb' },
+        'On Leave':     { bg:'#fff7ed', color:'#ea580c', border:'#fed7aa', dot:'#ea580c' },
+        'Pending':      { bg:'#fefce8', color:'#ca8a04', border:'#fde68a', dot:'#ca8a04' },
+        'Left Company': { bg:'#fef2f2', color:'#dc2626', border:'#fecaca', dot:'#dc2626' },
+    };
+
     try {
         const employees = await getAll('employees');
         if (employees.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#888;padding:20px;">No employees found.</td></tr>`;
+            container.innerHTML = '<p style="color:var(--text-2);padding:40px;text-align:center;">No employees found.</p>';
             return;
         }
-        employees.forEach(emp => {
-            const statusOptions = ['Active', 'Working', 'On Leave', 'Left Company', 'Pending'];
-            const optionsHTML   = statusOptions.map(s =>
-                `<option value="${s}" ${emp.status === s ? 'selected' : ''}>${s}</option>`
+
+        // Update status count pills
+        const counts = { Working:0, Active:0, 'On Leave':0, Pending:0, 'Left Company':0 };
+        employees.forEach(e => { if (counts[e.status] !== undefined) counts[e.status]++; });
+        document.getElementById('statusCount-Working')?.setAttribute('style', `padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;`);
+        if (document.getElementById('statusCount-Working'))  document.getElementById('statusCount-Working').textContent  = `Working: ${counts['Working']}`;
+        if (document.getElementById('statusCount-Active'))   document.getElementById('statusCount-Active').textContent   = `Active: ${counts['Active']}`;
+        if (document.getElementById('statusCount-On-Leave')) document.getElementById('statusCount-On-Leave').textContent = `On Leave: ${counts['On Leave']}`;
+        if (document.getElementById('statusCount-Pending'))  document.getElementById('statusCount-Pending').textContent  = `Pending: ${counts['Pending']}`;
+        if (document.getElementById('statusCount-Left'))     document.getElementById('statusCount-Left').textContent     = `Left: ${counts['Left Company']}`;
+
+        const statusOptions = ['Active', 'Working', 'On Leave', 'Left Company', 'Pending'];
+        container.innerHTML = employees.map(emp => {
+            const st  = emp.status || 'Active';
+            const sc  = statusColor[st] || { bg:'#f1f5f9', color:'#64748b', border:'#e2e8f0', dot:'#94a3b8' };
+            const initials = ((emp.firstName||'')[0]||'') + ((emp.lastName||'')[0]||'');
+            const avatarColors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444'];
+            const avatarBg = avatarColors[(emp.firstName?.charCodeAt(0)||0) % avatarColors.length];
+            const optionsHTML = statusOptions.map(s =>
+                `<option value="${s}" ${st === s ? 'selected' : ''}>${s}</option>`
             ).join('');
-            const workingDetail = (emp.status === 'Working' && emp.workPlace && emp.workPlace.trim())
-                ? `<span class="work-location-badge">📍 ${emp.workPlace}</span>`
-                : `<span style="color:#bbb;">—</span>`;
-            tbody.innerHTML += `
-                <tr>
-                    <td><strong>${emp.firstName} ${emp.lastName || ''}</strong></td>
-                    <td><span class="status-badge status-${(emp.status || '').toLowerCase().replace(/ /g, '-')}">${emp.status || 'Active'}</span></td>
-                    <td>
-                        <select onchange="handleStatusChange(event, '${emp.id}', this)"
-                            style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;font-size:13px;cursor:pointer;">
-                            ${optionsHTML}
-                        </select>
-                    </td>
-                    <td id="workDetail-${emp.id}">${workingDetail}</td>
-                </tr>
-            `;
-            setTimeout(() => {
-                const sel = document.querySelector(`select[onchange*="${emp.id}"]`);
-                if (sel) sel.dataset.lastGood = emp.status || 'Active';
-            }, 0);
-        });
+            const workingDetail = (st === 'Working' && emp.workPlace?.trim())
+                ? `<div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#16a34a;font-weight:600;">
+                     📍 <span id="workDetail-${emp.id}">${escapeHtml(emp.workPlace)}</span>
+                   </div>`
+                : `<div id="workDetail-${emp.id}" style="display:none;"></div>`;
+
+            return `
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 1px 6px rgba(0,0,0,0.05);" id="statusrow-${emp.id}">
+              <div style="width:44px;height:44px;border-radius:50%;background:${avatarBg};color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;">${escapeHtml(initials.toUpperCase()||'?')}</div>
+              <div style="flex:1;min-width:160px;">
+                <div style="font-weight:700;font-size:15px;color:var(--text-1);">${escapeHtml(`${emp.firstName} ${emp.lastName||''}`.trim())}</div>
+                <div style="font-size:12px;color:var(--text-2);margin-top:2px;">${escapeHtml(emp.role||'—')}</div>
+                ${workingDetail}
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;background:${sc.bg};color:${sc.color};border:1px solid ${sc.border};" id="statusbadge-${emp.id}">
+                  <span style="width:7px;height:7px;border-radius:50%;background:${sc.dot};display:inline-block;"></span>${escapeHtml(st)}
+                </span>
+                <select data-last="${escapeHtml(st)}" onchange="handleStatusChange(event, '${emp.id}', this)"
+                  style="padding:8px 12px;border-radius:10px;border:1px solid var(--border);font-size:13px;cursor:pointer;background:var(--surface);color:var(--text-1);font-weight:600;outline:none;">
+                  ${optionsHTML}
+                </select>
+              </div>
+            </div>`;
+        }).join('');
+
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#c00;padding:20px;">⚠ Could not load employees.</td></tr>`;
+        container.innerHTML = '<p style="color:#c00;padding:40px;text-align:center;">⚠ Could not load employees.</p>';
     }
 }
 
@@ -524,18 +854,38 @@ async function commitStatusUpdate(empId, newStatus, workPlace, selectEl) {
         await updateItem('employees', empId, body);
         if (selectEl) selectEl.dataset.lastGood = newStatus;
 
-        const detailCell = document.getElementById(`workDetail-${empId}`);
-        if (detailCell) {
-            detailCell.innerHTML = (newStatus === 'Working' && workPlace)
-                ? `<span class="work-location-badge">📍 ${workPlace}</span>`
-                : `<span style="color:#bbb;">—</span>`;
-        }
-        if (selectEl) {
-            const badge = selectEl.closest('tr')?.querySelector('.status-badge');
-            if (badge) {
-                badge.textContent = newStatus;
-                badge.className   = `status-badge status-${newStatus.toLowerCase().replace(/ /g, '-')}`;
+        // Update work location display
+        const workDetailEl = document.getElementById(`workDetail-${empId}`);
+        if (workDetailEl) {
+            if (newStatus === 'Working' && workPlace) {
+                workDetailEl.style.display = '';
+                workDetailEl.textContent = workPlace;
+                // ensure parent wrapper is visible
+                const wrapper = workDetailEl.closest('div[style*="background:#f0fdf4"]');
+                if (!wrapper) {
+                    workDetailEl.insertAdjacentHTML('beforebegin',
+                        `<div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#16a34a;font-weight:600;">📍 <span>${escapeHtml(workPlace)}</span></div>`);
+                }
+            } else {
+                workDetailEl.style.display = 'none';
             }
+        }
+
+        // Update status badge in new card layout
+        const badge = document.getElementById(`statusbadge-${empId}`);
+        const statusColor = {
+            'Working':      { bg:'#dcfce7', color:'#16a34a', border:'#bbf7d0', dot:'#16a34a' },
+            'Active':       { bg:'#dbeafe', color:'#2563eb', border:'#bfdbfe', dot:'#2563eb' },
+            'On Leave':     { bg:'#fff7ed', color:'#ea580c', border:'#fed7aa', dot:'#ea580c' },
+            'Pending':      { bg:'#fefce8', color:'#ca8a04', border:'#fde68a', dot:'#ca8a04' },
+            'Left Company': { bg:'#fef2f2', color:'#dc2626', border:'#fecaca', dot:'#dc2626' },
+        };
+        if (badge) {
+            const sc = statusColor[newStatus] || { bg:'#f1f5f9', color:'#64748b', border:'#e2e8f0', dot:'#94a3b8' };
+            badge.style.background   = sc.bg;
+            badge.style.color        = sc.color;
+            badge.style.borderColor  = sc.border;
+            badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${sc.dot};display:inline-block;"></span>${escapeHtml(newStatus)}`;
         }
         showNotification(`✅ Status updated → ${newStatus}${workPlace ? ' @ ' + workPlace : ''}`, 'success');
         updateDashboard();
@@ -568,13 +918,15 @@ function renderCustomerTable(customers) {
     customers.forEach(cust => {
         tbody.innerHTML += `
             <tr style="border-bottom:1px solid #f0f0f0;">
-                <td style="padding:12px;font-weight:600;">${cust.name}</td>
-                <td style="padding:12px;color:#666;font-size:13px;">${cust.stateCode || '-'}</td>
+                <td style="padding:12px;font-weight:600;">${escapeHtml(cust.name)}</td>
+                <td style="padding:12px;color:#666;font-size:13px;">${escapeHtml(cust.stateCode || '-')}</td>
                 <td style="padding:12px;font-size:13px;">${cust.gst ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;">✓ GST</span>' : '<span style="color:#bbb;font-size:12px;">No GST</span>'}</td>
-                <td style="padding:12px;font-size:13px;">${cust.phone || '-'}</td>
+                <td style="padding:12px;font-size:13px;">${escapeHtml(cust.phone || '-')}</td>
                 <td style="padding:12px;text-align:center;">
+                    ${window._userRole === 'admin' ? `
                     <button onclick="editCustomer('${cust.id}')" style="background:#eff6ff;color:#2563eb;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;margin-right:4px;">✏ Edit</button>
                     <button onclick="deleteCustomer('${cust.id}')" style="background:#fee2e2;color:#dc2626;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">🗑 Delete</button>
+                    ` : '<span style="color:#bbb;font-size:12px;">—</span>'}
                 </td>
             </tr>
         `;
@@ -648,10 +1000,10 @@ function loadCustomerDropdown(customers) {
     customers = customers || window._appCustomers || [];
     const select = document.getElementById('customerSelect');
     if (!select) return;
-    select.innerHTML = '<option value="">— Select Saved Customer —</option>';
-    customers.forEach(cust => {
-        select.innerHTML += `<option value="${cust.id}">${cust.name}</option>`;
-    });
+    setSelectOptions(select, customers.map(cust => ({
+        value: cust.id,
+        label: cust.name
+    })), '— Select Saved Customer —');
     if (window.customerChoicesInstance) window.customerChoicesInstance.destroy();
     if (typeof Choices !== 'undefined') {
         window.customerChoicesInstance = new Choices(select, {
@@ -674,7 +1026,7 @@ function attachCustomerSelectListener() {
             ['billName','billAddress','billState','invoiceCustomerPhone'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.value = '';
             });
-            toggleCustomerLock(true);
+            toggleCustomerLock(false);
         }
     });
 }
@@ -712,12 +1064,16 @@ function filterInvoices() {
 
         const locked = inv.status === 'Paid';
         const row = document.createElement('tr');
+        const safeInvoiceNo = escapeHtml(inv.invoiceNo || '-');
+        const safeCustomerName = escapeHtml(inv.customerName || '-');
+        const safeInvoiceDate = escapeHtml(inv.invoiceDate || '-');
+        const safeTaxLabel = escapeHtml(getTaxLabel(inv.taxType));
         row.innerHTML = `
-            <td>${inv.invoiceNo}</td>
-            <td><strong>${inv.customerName || '-'}</strong></td>
-            <td>${inv.invoiceDate || '-'}</td>
+            <td>${safeInvoiceNo}</td>
+            <td><strong>${safeCustomerName}</strong></td>
+            <td>${safeInvoiceDate}</td>
             <td>₹ ${Number(inv.total).toFixed(2)}</td>
-            <td>${getTaxLabel(inv.taxType)}</td>
+            <td>${safeTaxLabel}</td>
             <td>
                 <select class="status-${inv.status}" data-prev="${inv.status}" onchange="handleInvoiceStatusChange('${inv.id}', this)" ${locked ? 'disabled' : ''}>
                     ${['Draft','Pending','Sent','Paid','Cancelled','Overdue'].map(s =>
@@ -860,6 +1216,7 @@ async function saveInvoiceRecord() {
             const dup = (window._appInvoices || []).find(i => i.invoiceNo === invoiceNo);
             if (dup) { showNotification('⚠ Invoice number already exists', 'error'); return; }
             await addItem('invoices', payload);
+            await persistInvoiceCounterSetting();
             message = 'Invoice created successfully.';
         }
         showNotification('🧾 ' + message, 'success');
@@ -892,7 +1249,7 @@ function editInvoice(id) {
     document.getElementById('billState').value      = inv.billState || '';
     const pf = document.getElementById('invoiceCustomerPhone');
     if (pf) pf.value = inv.customerPhone || '';
-    toggleCustomerLock(true);
+    toggleCustomerLock(false);
     const tbody = document.getElementById('invoiceItemsBody');
     tbody.innerHTML = '';
     inv.items.forEach(item => {
@@ -976,16 +1333,17 @@ async function refreshFinanceUI() {
             running = Math.round(running * 100) / 100;
 
             const amtClass = txn.type === 'credit' ? 'income' : 'expense';
+            const encodedNote = txn.notes ? encodeURIComponent(txn.notes) : '';
             tbody.innerHTML += `
                 <tr>
-                    <td>${txn.date}</td>
+                    <td>${escapeHtml(txn.date)}</td>
                     <td>${txn.type === 'credit' ? 'Income' : 'Expense'}</td>
-                    <td>${txn.paidTo || '-'}</td>
-                    <td>${txn.category || '-'}</td>
-                    <td style="text-transform:capitalize;">${txn.paymentMode || '-'}</td>
+                    <td>${escapeHtml(txn.paidTo || '-')}</td>
+                    <td>${escapeHtml(txn.category || '-')}</td>
+                    <td style="text-transform:capitalize;">${escapeHtml(txn.paymentMode || '-')}</td>
                     <td class="${amtClass}">₹${amt.toFixed(2)}</td>
                     <td>₹${running.toFixed(2)}</td>
-                    <td>${txn.notes ? `<span class="note-icon" onclick="openNoteModal(\`${txn.notes.replace(/`/g,'\\`')}\`)">📝 View</span>` : '-'}</td>
+                    <td>${txn.notes ? `<span class="note-icon" onclick="openNoteModal(decodeURIComponent('${encodedNote}'))">📝 View</span>` : '-'}</td>
                     <td><button onclick="deleteFinanceTxn('${txn.id}')">Delete</button></td>
                 </tr>
             `;
@@ -1115,13 +1473,16 @@ async function loadFinancePeopleDropdown() {
             getAll('employees'),
             getAll('customers')
         ]);
-        select.innerHTML = '<option value="">Select Person</option>';
-        employees.forEach(emp => {
-            select.innerHTML += `<option value="emp-${emp.id}">${emp.firstName} ${emp.lastName || ''} (Employee)</option>`;
-        });
-        customers.forEach(cust => {
-            select.innerHTML += `<option value="cust-${cust.id}">${cust.name} (Customer)</option>`;
-        });
+        setSelectOptions(select, [
+            ...employees.map(emp => ({
+                value: `emp-${emp.id}`,
+                label: `${emp.firstName} ${emp.lastName || ''} (Employee)`.trim()
+            })),
+            ...customers.map(cust => ({
+                value: `cust-${cust.id}`,
+                label: `${cust.name} (Customer)`
+            }))
+        ], 'Select Person');
     } catch (err) { console.error('Finance people dropdown error:', err); }
 }
 
@@ -1149,10 +1510,15 @@ async function loadSalaryEmployees() {
     if (!select) return;
     try {
         const emps = await getAll('employees');
-        select.innerHTML = '<option value="">Select Employee</option>';
-        emps.filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending').forEach(emp => {
-            select.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''}</option>`;
-        });
+        setSelectOptions(select,
+            emps
+                .filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending')
+                .map(emp => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName || ''}`.trim()
+                })),
+            'Select Employee'
+        );
     } catch (err) { console.error('Salary employees error:', err); }
 }
 
@@ -1251,8 +1617,8 @@ function loadSalaryLedger() {
         const amtClass = e.amount >= 0 ? 'sal-amt-positive' : 'sal-amt-negative';
         ledgerBody.innerHTML += `
             <tr class="${rowClass}">
-                <td>${e.date}</td><td>${e.type}</td><td>${e.details}</td>
-                <td style="text-transform:capitalize;">${e.mode}</td>
+                <td>${escapeHtml(e.date)}</td><td>${escapeHtml(e.type)}</td><td>${escapeHtml(e.details)}</td>
+                <td style="text-transform:capitalize;">${escapeHtml(e.mode)}</td>
                 <td class="${amtClass}">₹${Math.abs(e.amount).toFixed(2)}</td>
                 <td>₹${e.runningBalance.toFixed(2)}</td>
             </tr>
@@ -1444,10 +1810,10 @@ async function openLeaveModal() {
     try {
         const emps = await getAll('employees');
         const sel  = document.getElementById('leaveEmployeeSelect');
-        sel.innerHTML = '<option value="">Select Employee</option>';
-        emps.forEach(emp => {
-            sel.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''} (${emp.status})</option>`;
-        });
+        setSelectOptions(sel, emps.map(emp => ({
+            value: emp.id,
+            label: `${emp.firstName} ${emp.lastName || ''} (${emp.status})`.trim()
+        })), 'Select Employee');
     } catch (err) { console.error('Leave modal error:', err); }
     document.getElementById('leaveStartDate').value = new Date().toISOString().slice(0, 10);
     document.getElementById('leaveModal').classList.add('active');
@@ -1501,16 +1867,16 @@ async function loadLeaveTable() {
         }
         const typeTag = t => {
             const c = {'Casual Leave':'#f59e0b','Sick Leave':'#ef4444','Paid Leave':'#22c55e','Unpaid Leave':'#6366f1'}[t] || '#888';
-            return `<span style="background:${c}22;color:${c};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${t}</span>`;
+            return `<span style="background:${c}22;color:${c};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${escapeHtml(t)}</span>`;
         };
         leaves.forEach(leave => {
             tbody.innerHTML += `
                 <tr style="border-bottom:1px solid #f0f0f0;">
-                    <td style="padding:14px 18px;">${leave.startDate}</td>
-                    <td style="padding:14px 18px;"><strong>${leave.employeeName}</strong></td>
+                    <td style="padding:14px 18px;">${escapeHtml(leave.startDate)}</td>
+                    <td style="padding:14px 18px;"><strong>${escapeHtml(leave.employeeName)}</strong></td>
                     <td style="padding:14px 18px;">${typeTag(leave.type)}</td>
                     <td style="padding:14px 18px;font-weight:600;">${leave.days} day${leave.days != 1 ? 's' : ''}</td>
-                    <td style="padding:14px 18px;color:#666;">${leave.reason || '-'}</td>
+                    <td style="padding:14px 18px;color:#666;">${escapeHtml(leave.reason || '-')}</td>
                     <td style="padding:14px 18px;text-align:center;">
                         <button onclick="deleteLeave('${leave.id}')"
                             style="background:#fee2e2;color:#dc2626;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">
@@ -1572,10 +1938,10 @@ async function loadAttendanceEmployeeDropdown() {
     try {
         const emps = await getAll('employees');
         const prev = select.value;
-        select.innerHTML = '<option value="">-- All Employees --</option>';
-        emps.forEach(emp => {
-            select.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})</option>`;
-        });
+        setSelectOptions(select, emps.map(emp => ({
+            value: emp.id,
+            label: `${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})`.trim()
+        })), '-- All Employees --');
         select.value = prev;
     } catch (err) { console.error('Attendance dropdown error:', err); }
 }
@@ -1584,11 +1950,17 @@ function openMarkAttendanceModal() {
     getAll('employees').then(emps => {
         const select = document.getElementById('markAttEmpSelect');
         if (!select) return;
-        select.innerHTML = '<option value="">Select Employee</option>';
-        emps.filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending')
-            .forEach(emp => {
-                select.innerHTML += `<option value="${emp.id}" data-name="${emp.firstName} ${emp.lastName || ''}">${emp.firstName} ${emp.lastName || ''}</option>`;
-            });
+        setSelectOptions(
+            select,
+            emps
+                .filter(e => e.status === 'Active' || e.status === 'Working' || e.status === 'Pending')
+                .map(emp => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName || ''}`.trim(),
+                    dataset: { name: `${emp.firstName} ${emp.lastName || ''}`.trim() }
+                })),
+            'Select Employee'
+        );
     });
     const todayStr  = new Date().toISOString().slice(0, 10);
     const attDateEl = document.getElementById('markAttDate');
@@ -1658,10 +2030,10 @@ async function loadAttendanceTable() {
             const statusClass = getAttStatusClass(rec.status);
             tbody.innerHTML += `
                 <tr>
-                    <td>${formatAttDate(rec.date)}</td>
-                    <td><strong>${rec.employeeName}</strong></td>
-                    <td><span class="${statusClass}">${rec.status}</span></td>
-                    <td>${rec.notes || '-'}</td>
+                    <td>${escapeHtml(formatAttDate(rec.date))}</td>
+                    <td><strong>${escapeHtml(rec.employeeName)}</strong></td>
+                    <td><span class="${statusClass}">${escapeHtml(rec.status)}</span></td>
+                    <td>${escapeHtml(rec.notes || '-')}</td>
                     <td style="text-align:center;">
                         <button onclick="deleteAttendanceRecord('${rec.id}')"
                             style="background:#dc3545;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">
@@ -1714,7 +2086,7 @@ async function loadAttendanceMonthlySummary() {
             const barColor = pct >= 80 ? '#4caf50' : pct >= 60 ? '#ff9800' : '#dc3545';
             tbody.innerHTML += `
                 <tr>
-                    <td><strong>${e.name}</strong></td>
+                    <td><strong>${escapeHtml(e.name)}</strong></td>
                     <td style="color:#2e7d32;font-weight:bold;">${e.Present}</td>
                     <td style="color:#dc3545;font-weight:bold;">${e.Absent}</td>
                     <td style="color:#f57c00;font-weight:bold;">${e['Half Day']}</td>
@@ -1791,8 +2163,10 @@ async function loadDocEmployeeFilter() {
     const prev = sel.value;
     try {
         const emps = await getAll('employees');
-        sel.innerHTML = '<option value="">All Employees</option>';
-        emps.forEach(emp => { sel.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''}</option>`; });
+        setSelectOptions(sel, emps.map(emp => ({
+            value: emp.id,
+            label: `${emp.firstName} ${emp.lastName || ''}`.trim()
+        })), 'All Employees');
         sel.value = prev;
     } catch (err) { console.error('Doc employee filter error:', err); }
 }
@@ -1802,8 +2176,10 @@ async function loadDocEmployeeUploadDropdown() {
     if (!sel) return;
     try {
         const emps = await getAll('employees');
-        sel.innerHTML = '<option value="">Select Employee</option>';
-        emps.forEach(emp => { sel.innerHTML += `<option value="${emp.id}">${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})</option>`; });
+        setSelectOptions(sel, emps.map(emp => ({
+            value: emp.id,
+            label: `${emp.firstName} ${emp.lastName || ''} (${emp.role || '-'})`.trim()
+        })), 'Select Employee');
     } catch (err) { console.error('Doc upload dropdown error:', err); }
 }
 
@@ -1832,11 +2208,11 @@ function previewDocFile() {
     preview.innerHTML = `
         <div class="doc-preview-info">
             <span class="doc-file-icon">${getFileIcon(file.type)}</span>
-            <div><strong>${file.name}</strong><br>
-            <span style="font-size:12px;color:#666;">${formatFileType(file.type)} • ${sizeMB} MB</span></div>
+            <div><strong>${escapeHtml(file.name)}</strong><br>
+            <span style="font-size:12px;color:#666;">${escapeHtml(formatFileType(file.type))} • ${escapeHtml(sizeMB)} MB</span></div>
         </div>`;
     if (parseFloat(sizeMB) > 5) {
-        preview.innerHTML += `<p style="color:#d32f2f;font-size:12px;margin:6px 0 0;">⚠ Large file (${sizeMB} MB). Keep docs under 5 MB.</p>`;
+        preview.innerHTML += `<p style="color:#d32f2f;font-size:12px;margin:6px 0 0;">⚠ Large file (${escapeHtml(sizeMB)} MB). Keep docs under 10 MB.</p>`;
     }
 }
 
@@ -1848,14 +2224,16 @@ async function saveDocument() {
     if (!empId)  { alert('Please select an employee.'); return; }
     if (!file)   { alert('Please choose a file.'); return; }
     if (file.size / 1024 / 1024 > 10) { alert('File too large. Max 10 MB.'); return; }
-    const base64 = await toBase64(file);
     try {
         const emp = await getById('employees', empId);
+        const uploaded = await uploadFileToStorage(file, `employee-documents/${empId}`, docType || 'document');
         await addItem('documents', {
             employeeId:   empId,
             employeeName: `${emp.firstName} ${emp.lastName || ''}`,
             docType, fileName: file.name, fileType: file.type,
-            fileSize: file.size, base64, notes
+            fileSize: file.size, notes,
+            storagePath: uploaded.storagePath,
+            downloadURL: uploaded.downloadURL
         });
         showNotification('📎 Document uploaded', 'success');
         closeDocUploadModal();
@@ -1898,7 +2276,7 @@ async function renderDocumentCards() {
             section.innerHTML = `
                 <div class="doc-group-header">
                     <div class="doc-emp-avatar">${getInitials(group.name)}</div>
-                    <div><strong>${group.name}</strong>
+                    <div><strong>${escapeHtml(group.name)}</strong>
                     <span class="doc-count-badge">${group.docs.length} document${group.docs.length !== 1 ? 's' : ''}</span></div>
                     <button class="doc-add-btn" onclick="openDocUploadModal('${empId}')">+ Add</button>
                 </div>
@@ -1914,11 +2292,11 @@ async function renderDocumentCards() {
                     : '-';
                 card.innerHTML = `
                     <div class="doc-card-icon">${DOC_ICONS[doc.docType] || '📎'}</div>
-                    <div class="doc-card-type">${doc.docType}</div>
-                    <div class="doc-card-filename" title="${doc.fileName}">${truncateFilename(doc.fileName)}</div>
-                    <div class="doc-card-size">${formatFileSize(doc.fileSize)}</div>
-                    <div class="doc-card-date">${uploadedDate}</div>
-                    ${doc.notes ? `<div class="doc-card-notes" title="${doc.notes}">📝 ${doc.notes}</div>` : ''}
+                    <div class="doc-card-type">${escapeHtml(doc.docType)}</div>
+                    <div class="doc-card-filename" title="${escapeHtml(doc.fileName)}">${escapeHtml(truncateFilename(doc.fileName))}</div>
+                    <div class="doc-card-size">${escapeHtml(formatFileSize(doc.fileSize))}</div>
+                    <div class="doc-card-date">${escapeHtml(uploadedDate)}</div>
+                    ${doc.notes ? `<div class="doc-card-notes" title="${escapeHtml(doc.notes)}">📝 ${escapeHtml(doc.notes)}</div>` : ''}
                     <div class="doc-card-actions">
                         <button class="doc-btn-view"   onclick="viewDocument('${doc.id}')">View</button>
                         <button class="doc-btn-dl"     onclick="downloadDocument('${doc.id}')">Download</button>
@@ -1938,16 +2316,34 @@ async function viewDocument(id) {
         const cached = (window._docCache || []).find(d => d.id === id);
         let doc = cached || await getById('documents', id);
         if (!doc) return;
+        const src = getDocumentSource(doc);
+        if (!src) { showNotification('⚠ File source is missing for this document', 'warning'); return; }
         const win = window.open('', '_blank');
         if (!win) { alert('Pop-up blocked. Please allow pop-ups.'); return; }
+        win.document.title = doc.fileName || 'Document';
+        win.document.body.style.margin = '0';
         if (doc.fileType === 'application/pdf') {
-            win.document.write(`<html><head><title>${doc.fileName}</title></head>
-                <body style="margin:0;"><embed src="${doc.base64}" type="application/pdf" width="100%" height="100%"
-                style="position:fixed;top:0;left:0;width:100%;height:100%;"></body></html>`);
-        } else if (doc.fileType.startsWith('image/')) {
-            win.document.write(`<html><head><title>${doc.fileName}</title></head>
-                <body style="margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-                <img src="${doc.base64}" style="max-width:100%;max-height:100vh;object-fit:contain;"></body></html>`);
+            const embed = win.document.createElement('embed');
+            embed.src = src;
+            embed.type = 'application/pdf';
+            embed.style.position = 'fixed';
+            embed.style.top = '0';
+            embed.style.left = '0';
+            embed.style.width = '100%';
+            embed.style.height = '100%';
+            win.document.body.appendChild(embed);
+        } else if ((doc.fileType || '').startsWith('image/')) {
+            win.document.body.style.background = '#111';
+            win.document.body.style.display = 'flex';
+            win.document.body.style.justifyContent = 'center';
+            win.document.body.style.alignItems = 'center';
+            win.document.body.style.minHeight = '100vh';
+            const img = win.document.createElement('img');
+            img.src = src;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100vh';
+            img.style.objectFit = 'contain';
+            win.document.body.appendChild(img);
         } else {
             win.close();
             downloadDocument(id);
@@ -1960,8 +2356,10 @@ async function downloadDocument(id) {
         const cached = (window._docCache || []).find(d => d.id === id);
         let doc = cached || await getById('documents', id);
         if (!doc) return;
+        const src = getDocumentSource(doc);
+        if (!src) { showNotification('⚠ File source is missing for this document', 'warning'); return; }
         const a    = document.createElement('a');
-        a.href     = doc.base64;
+        a.href     = src;
         a.download = doc.fileName;
         a.click();
         showNotification('📥 Downloading ' + doc.fileName, 'info');
@@ -1971,6 +2369,9 @@ async function downloadDocument(id) {
 async function deleteDocument(id) {
     if (!confirm('Delete this document? This cannot be undone.')) return;
     try {
+        const cached = (window._docCache || []).find(d => d.id === id);
+        const doc = cached || await getById('documents', id);
+        if (doc?.storagePath) await deleteStoredFile(doc.storagePath);
         await deleteItem('documents', id);
         showNotification('🗑 Document deleted', 'warning');
         renderDocumentCards();
@@ -1996,6 +2397,13 @@ async function updateDocSummaryCards() {
 // SETTINGS
 // ===============================
 async function loadSettings() {
+    // Hide system controls and backup/restore for staff
+    const isAdmin = window._userRole === 'admin';
+    const sysBlock    = document.getElementById('systemControlsBlock');
+    const backupBlock = document.getElementById('backupRestoreBlock');
+    if (sysBlock)    sysBlock.style.display    = isAdmin ? '' : 'none';
+    if (backupBlock) backupBlock.style.display = isAdmin ? '' : 'none';
+
     try {
         const snap = await docRef('settings', 'company').get();
         if (!snap.exists) return;
@@ -2006,6 +2414,13 @@ async function loadSettings() {
         set('companyPhone',   s.companyPhone);
         set('companyEmail',   s.companyEmail);
         set('companyGST',     s.companyGST);
+        const counter = parseInt(s.invoiceCounter, 10);
+        if (Number.isFinite(counter) && counter > 0) {
+            localStorage.setItem('invoiceCounter', String(counter));
+            if (window.InvoiceCore && typeof window.InvoiceCore.setCounter === 'function') {
+                window.InvoiceCore.setCounter(counter);
+            }
+        }
     } catch (err) { console.error('Load settings error:', err); }
 }
 
@@ -2018,19 +2433,43 @@ async function saveSettings() {
         companyGST:     document.getElementById('companyGST').value
     };
     try {
-        await docRef('settings', 'company').set(payload);
+        await docRef('settings', 'company').set(payload, { merge: true });
         showNotification('✅ Settings saved', 'success');
     } catch (err) { showNotification('❌ Failed to save settings', 'warning'); }
 }
 
 async function changePassword() {
-    const newPass = prompt('Enter new password');
-    if (!newPass) return;
+    const user = firebase.auth().currentUser;
+    if (!user?.email) {
+        showNotification('⚠ Please log in again before changing the password', 'warning');
+        return;
+    }
+
+    const currentPass = prompt('Enter your current password');
+    if (currentPass === null) return;
+
+    const newPass = prompt('Enter your new password (minimum 6 characters)');
+    if (newPass === null) return;
+    if (newPass.length < 6) {
+        showNotification('⚠ Password must be at least 6 characters long', 'warning');
+        return;
+    }
+
     try {
-        await docRef('settings', 'auth').set({ erpPassword: newPass }, { merge: true });
-        localStorage.setItem('erpPassword', newPass);
-        showNotification('🔑 Password changed', 'success');
-    } catch (err) { alert('Failed to change password'); }
+        const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPass);
+        showNotification('🔑 Password changed successfully', 'success');
+    } catch (err) {
+        const message = err?.code === 'auth/wrong-password'
+            ? '⚠ Current password is incorrect'
+            : err?.code === 'auth/weak-password'
+                ? '⚠ New password is too weak'
+                : err?.code === 'auth/requires-recent-login'
+                    ? '⚠ Please log in again and retry the password change'
+                    : '❌ Failed to change password';
+        showNotification(message, 'warning');
+    }
 }
 
 function logoutUser() {
@@ -2040,28 +2479,54 @@ function logoutUser() {
     });
 }
 
-function backupERP() {
-    const data = JSON.stringify(localStorage);
-    const blob = new Blob([data], { type: 'application/json' });
-    const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = 'erp-backup.json';
-    a.click();
-    showNotification('💾 ERP backup created', 'success');
+async function backupERP() {
+    try {
+        showNotification('⏳ Preparing backup...', 'info');
+        const [employees, invoices, customers, finances, leaves, attendance, settings] = await Promise.all([
+            getAll('employees'), getAll('invoices'), getAll('customers'),
+            getAll('finance'),   getAll('leaves'),  getAll('attendance'),
+            docRef('settings', 'company').get().then(s => s.exists ? s.data() : {})
+        ]);
+        const backup = { employees, invoices, customers, finances, leaves, attendance, settings, exportedAt: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'sumukha-erp-backup-' + new Date().toISOString().slice(0,10) + '.json';
+        a.click();
+        showNotification('💾 Firebase backup downloaded', 'success');
+    } catch (err) { showNotification('❌ Backup failed', 'warning'); console.error(err); }
 }
 
-function restoreERP() {
+async function restoreERP() {
+    if (!confirm('This will overwrite existing Firestore data with the backup. Continue?')) return;
     const input = document.createElement('input');
     input.type  = 'file';
-    input.onchange = function (e) {
-        const reader = new FileReader();
-        reader.onload = function (event) {
-            const data = JSON.parse(event.target.result);
-            Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
-            showNotification('♻ ERP restored', 'info');
-            location.reload();
-        };
-        reader.readAsText(e.target.files[0]);
+    input.accept = '.json';
+    input.onchange = async function (e) {
+        try {
+            showNotification('⏳ Restoring...', 'info');
+            const text = await e.target.files[0].text();
+            const backup = JSON.parse(text);
+            const restoreCollection = async (colName, items) => {
+                if (!Array.isArray(items)) return;
+                await Promise.all(items.map(item => {
+                    const { id, ...data } = item;
+                    return docRef(colName, id).set(data, { merge: true });
+                }));
+            };
+            await Promise.all([
+                restoreCollection('employees', backup.employees),
+                restoreCollection('invoices',  backup.invoices),
+                restoreCollection('customers', backup.customers),
+                restoreCollection('finance',   backup.finances),
+                restoreCollection('leaves',    backup.leaves),
+                restoreCollection('attendance',backup.attendance),
+            ]);
+            if (backup.settings) {
+                await docRef('settings', 'company').set(backup.settings, { merge: true });
+            }
+            showNotification('✅ Restore complete', 'success');
+        } catch (err) { showNotification('❌ Restore failed', 'warning'); console.error(err); }
     };
     input.click();
 }
@@ -2069,6 +2534,10 @@ function restoreERP() {
 async function resetInvoiceCounter() {
     if (!confirm('Reset invoice counter to 1?')) return;
     await docRef('settings', 'company').set({ invoiceCounter: 1 }, { merge: true });
+    localStorage.setItem('invoiceCounter', '1');
+    if (window.InvoiceCore && typeof window.InvoiceCore.setCounter === 'function') {
+        window.InvoiceCore.setCounter(1);
+    }
     showNotification('🔄 Invoice counter reset', 'success');
 }
 
@@ -2081,11 +2550,24 @@ async function resetEmployeeStatus() {
     } catch (err) { showNotification('❌ Failed', 'warning'); }
 }
 
-function clearERP() {
-    if (!confirm('This will clear local data only. Firestore data is unaffected. Continue?')) return;
-    localStorage.clear();
-    showNotification('⚠ Local data cleared', 'warning');
-    location.reload();
+async function clearERP() {
+    if (!confirm('⚠ This will permanently delete ALL data from Firebase (employees, invoices, customers, finance, leaves, attendance). This cannot be undone. Are you sure?')) return;
+    if (!confirm('Last warning — are you absolutely sure you want to wipe everything?')) return;
+    try {
+        showNotification('⏳ Clearing all data...', 'warning');
+        const deleteCollection = async (colName) => {
+            const snap = await col(colName).get();
+            await Promise.all(snap.docs.map(d => d.ref.delete()));
+        };
+        await Promise.all([
+            deleteCollection('employees'), deleteCollection('invoices'),
+            deleteCollection('customers'), deleteCollection('finance'),
+            deleteCollection('leaves'),    deleteCollection('attendance'),
+        ]);
+        localStorage.clear();
+        showNotification('🗑 All ERP data wiped', 'warning');
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) { showNotification('❌ Reset failed', 'warning'); console.error(err); }
 }
 
 // ===============================
@@ -2107,7 +2589,7 @@ async function openStaffSalaryModal() {
                 <label style="font-size:13px;font-weight:600;">Staff Member</label>
                 <select id="staffSalaryEmpSelect" style="width:100%;margin:8px 0 14px;padding:9px;border-radius:8px;border:1px solid #ddd;">
                     <option value="">Select Staff</option>
-                    ${staffOnly.map(e => `<option value="${e.id}">${e.firstName} ${e.lastName || ''}</option>`).join('')}
+                    ${staffOnly.map(e => `<option value="${e.id}">${escapeHtml(`${e.firstName} ${e.lastName || ''}`.trim())}</option>`).join('')}
                 </select>
                 <label style="font-size:13px;font-weight:600;">Amount (₹)</label>
                 <input type="number" id="staffSalaryAmount" placeholder="Enter salary amount"
@@ -2165,7 +2647,10 @@ async function saveStaffSalary() {
 function toggleDarkMode() {
     const isDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('erpDarkMode', isDark ? 'enabled' : 'disabled');
-    document.querySelectorAll('#darkModeToggle').forEach(t => { t.checked = isDark; });
+    const sidebar   = document.getElementById('darkModeToggle');
+    const settings  = document.getElementById('darkModeToggleSettings');
+    if (sidebar)  sidebar.checked  = isDark;
+    if (settings) settings.checked = isDark;
     if (typeof updateDashboard === 'function') updateDashboard();
 }
 
@@ -2174,7 +2659,10 @@ function loadDarkMode() {
     if (enabled) document.body.classList.add('dark-mode');
     else          document.body.classList.remove('dark-mode');
     setTimeout(() => {
-        document.querySelectorAll('#darkModeToggle').forEach(t => { t.checked = enabled; });
+        const sidebar  = document.getElementById('darkModeToggle');
+        const settings = document.getElementById('darkModeToggleSettings');
+        if (sidebar)  sidebar.checked  = enabled;
+        if (settings) settings.checked = enabled;
     }, 80);
 }
 
@@ -2206,7 +2694,7 @@ function showNotification(message, type = 'success') {
     if (!container) return;
     const note = document.createElement('div');
     note.className = `erp-notification erp-${type}`;
-    note.innerHTML = message;
+    note.textContent = String(message ?? '');
     container.appendChild(note);
     setTimeout(() => {
         note.style.opacity   = '0';
@@ -2303,18 +2791,7 @@ function openCreateInvoice(taxMode) {
         try { window.customerChoicesInstance.destroy(); } catch(e) {}
         window.customerChoicesInstance = null;
     }
-    const select = document.getElementById('customerSelect');
-    if (select) {
-        select.innerHTML = '<option value="">\u2014 Select Saved Customer \u2014</option>';
-        (window._appCustomers || []).forEach(cust => {
-            select.innerHTML += `<option value="${cust.id}">${cust.name}</option>`;
-        });
-        if (typeof Choices !== 'undefined') {
-            window.customerChoicesInstance = new Choices(select, {
-                searchEnabled: true, itemSelectText: '', shouldSort: false
-            });
-        }
-    }
+    loadCustomerDropdown(window._appCustomers || []);
     resetInvoiceForm();
     ['billName','billAddress','billState','invoiceCustomerPhone'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
@@ -2332,21 +2809,33 @@ window.addEventListener('load', async function () {
     resetInactivityTimer();
     loadStates();
 
-    try {
-        const customers = await getAll('customers');
-        window._appCustomers = customers;
-        loadCustomerDropdown(customers);
-        attachCustomerSelectListener();
-    } catch (_) {}
-
-    try {
-        window._appInvoices = await getAll('invoices');
-    } catch (_) {}
-
+    // Salary select listeners
     document.getElementById('salaryEmployeeSelect')?.addEventListener('change', loadSalarySummary);
     document.getElementById('salaryMonthSelect')?.addEventListener('change', loadSalarySummary);
 
-    updateDashboard();
-    loadSalaryMonths();
-    loadSalaryEmployees();
+    // Wait for Firebase Auth to resolve, then load data with role context
+    firebase.auth().onAuthStateChanged(async function(user) {
+        if (!user) return; // redirect already handled above
+
+        await syncInvoiceCounterFromSettings();
+
+        try {
+            const customers = await getAll('customers');
+            window._appCustomers = customers;
+            loadCustomerDropdown(customers);
+            attachCustomerSelectListener();
+        } catch (_) {}
+
+        try {
+            window._appInvoices = await getAll('invoices');
+        } catch (_) {}
+
+        updateDashboard();
+
+        // Salary dropdowns only needed for admin
+        if (window._userRole === 'admin') {
+            loadSalaryMonths();
+            loadSalaryEmployees();
+        }
+    });
 });
