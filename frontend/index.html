@@ -509,44 +509,126 @@
     </section>
 
     <section id="financeSection" class="sub-section">
-      <div class="fd-header">
-        <div>
-          <div class="fd-title">💰 Finance Dashboard</div>
-          <div class="fd-subtitle">Track balances, income &amp; expenses</div>
-        </div>
+
+      <style>
+        /* Finance Dashboard — scoped styles, highest specificity */
+        #financeSection { font-family: 'DM Sans', sans-serif; }
+
+        #financeSection .fin2-header { margin-bottom: 24px; }
+        #financeSection .fin2-title { font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -.03em; }
+        #financeSection .fin2-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .dark-mode #financeSection .fin2-title { color: #e8edf8; }
+        .dark-mode #financeSection .fin2-subtitle { color: #4a5268; }
+
+        #financeSection .fin2-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+        @media(max-width:900px) { #financeSection .fin2-grid { grid-template-columns: repeat(2,1fr); } }
+        @media(max-width:480px) { #financeSection .fin2-grid { grid-template-columns: 1fr 1fr; } }
+
+        #financeSection .fin2-card { border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 5px; border: 1px solid transparent; transition: transform .2s, box-shadow .2s; }
+        #financeSection .fin2-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.1); }
+        #financeSection .fin2-card-icon { font-size: 18px; margin-bottom: 4px; }
+        #financeSection .fin2-card-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+        #financeSection .fin2-card-value { font-size: 22px; font-weight: 800; font-family: 'DM Mono', monospace; letter-spacing: -.03em; line-height: 1.1; }
+
+        #financeSection .fin2-bank { background: #eff6ff; border-color: #bfdbfe; }
+        #financeSection .fin2-bank .fin2-card-label { color: #1d4ed8; }
+        #financeSection .fin2-bank .fin2-card-value { color: #1e40af; }
+        #financeSection .fin2-cash { background: #f0fdf4; border-color: #bbf7d0; }
+        #financeSection .fin2-cash .fin2-card-label { color: #15803d; }
+        #financeSection .fin2-cash .fin2-card-value { color: #166534; }
+        #financeSection .fin2-total { background: #f5f3ff; border-color: #ddd6fe; }
+        #financeSection .fin2-total .fin2-card-label { color: #6d28d9; }
+        #financeSection .fin2-total .fin2-card-value { color: #5b21b6; }
+        #financeSection .fin2-expense { background: #fff1f2; border-color: #fecdd3; }
+        #financeSection .fin2-expense .fin2-card-label { color: #be123c; }
+        #financeSection .fin2-expense .fin2-card-value { color: #9f1239; }
+
+        .dark-mode #financeSection .fin2-bank { background: rgba(37,99,235,.12); border-color: rgba(37,99,235,.3); }
+        .dark-mode #financeSection .fin2-bank .fin2-card-label { color: #93c5fd; }
+        .dark-mode #financeSection .fin2-bank .fin2-card-value { color: #bfdbfe; }
+        .dark-mode #financeSection .fin2-cash { background: rgba(22,163,74,.12); border-color: rgba(22,163,74,.3); }
+        .dark-mode #financeSection .fin2-cash .fin2-card-label { color: #86efac; }
+        .dark-mode #financeSection .fin2-cash .fin2-card-value { color: #bbf7d0; }
+        .dark-mode #financeSection .fin2-total { background: rgba(109,40,217,.14); border-color: rgba(109,40,217,.3); }
+        .dark-mode #financeSection .fin2-total .fin2-card-label { color: #c4b5fd; }
+        .dark-mode #financeSection .fin2-total .fin2-card-value { color: #ddd6fe; }
+        .dark-mode #financeSection .fin2-expense { background: rgba(190,18,60,.12); border-color: rgba(190,18,60,.3); }
+        .dark-mode #financeSection .fin2-expense .fin2-card-label { color: #fda4af; }
+        .dark-mode #financeSection .fin2-expense .fin2-card-value { color: #fecdd3; }
+
+        #financeSection .fin2-profit { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #16a34a; border-radius: 14px; padding: 20px 24px; margin-bottom: 28px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+        #financeSection .fin2-profit-label { font-size: 13px; font-weight: 700; color: #0f172a; }
+        #financeSection .fin2-profit-sub { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+        #financeSection .fin2-profit-amount { font-size: 30px; font-weight: 800; font-family: 'DM Mono', monospace; letter-spacing: -.04em; color: #16a34a; }
+        .dark-mode #financeSection .fin2-profit { background: #141820; border-color: rgba(255,255,255,.07); border-left-color: #4ade80; }
+        .dark-mode #financeSection .fin2-profit-label { color: #e8edf8; }
+        .dark-mode #financeSection .fin2-profit-amount { color: #4ade80; }
+
+        #financeSection .fin2-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; margin: 24px 0 10px; }
+
+        #financeSection .fin2-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 4px; }
+        .dark-mode #financeSection .fin2-panel { background: #141820; border-color: rgba(255,255,255,.07); }
+
+        #financeSection .fin2-panel-body { padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        #financeSection .fin2-reset-row { padding: 10px 18px 14px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; gap: 8px; flex-wrap: wrap; }
+        .dark-mode #financeSection .fin2-reset-row { border-color: rgba(255,255,255,.07); background: #1a1f2e; }
+
+        #financeSection .fin2-inp { flex: 1; min-width: 140px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; background: #f8fafc; border: 1.5px solid #e2e8f0; color: #0f172a; border-radius: 10px; padding: 9px 12px; outline: none; transition: border-color .18s, box-shadow .18s; }
+        #financeSection .fin2-inp:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.1); }
+        .dark-mode #financeSection .fin2-inp { background: #1a1f2e; border-color: rgba(255,255,255,.07); color: #e8edf8; }
+
+        #financeSection .fin2-btn-primary { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; border: none; border-radius: 10px; padding: 9px 20px; cursor: pointer; box-shadow: 0 4px 14px rgba(79,70,229,.35); transition: all .18s; white-space: nowrap; flex-shrink: 0; }
+        #financeSection .fin2-btn-primary:hover { background: linear-gradient(135deg, #4338ca, #6d28d9); transform: translateY(-2px); box-shadow: 0 6px 22px rgba(79,70,229,.5); }
+
+        #financeSection .fin2-btn-red { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; border-radius: 10px; padding: 7px 14px; cursor: pointer; transition: all .18s; }
+        #financeSection .fin2-btn-red:hover { background: #fecaca; transform: translateY(-1px); }
+        #financeSection .fin2-btn-amber { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; background: #fffbeb; color: #d97706; border: 1.5px solid #fde68a; border-radius: 10px; padding: 7px 14px; cursor: pointer; transition: all .18s; }
+        #financeSection .fin2-btn-amber:hover { background: #fde68a; transform: translateY(-1px); }
+        #financeSection .fin2-btn-purple { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; background: #f5f3ff; color: #7c3aed; border: 1.5px solid #ddd6fe; border-radius: 10px; padding: 7px 14px; cursor: pointer; transition: all .18s; }
+        #financeSection .fin2-btn-purple:hover { background: #ddd6fe; transform: translateY(-1px); }
+
+        .dark-mode #financeSection .fin2-btn-red { background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.25); color: #fca5a5; }
+        .dark-mode #financeSection .fin2-btn-amber { background: rgba(217,119,6,.12); border-color: rgba(217,119,6,.25); color: #fcd34d; }
+        .dark-mode #financeSection .fin2-btn-purple { background: rgba(124,58,237,.12); border-color: rgba(124,58,237,.25); color: #c4b5fd; }
+      </style>
+
+      <!-- Header -->
+      <div class="fin2-header">
+        <div class="fin2-title">💰 Finance Dashboard</div>
+        <div class="fin2-subtitle">Track balances, income &amp; expenses</div>
       </div>
 
-      <!-- Balance stat cards -->
-      <div class="fd-stat-grid">
-        <div class="fd-stat fd-stat-bank">
-          <div class="fd-stat-icon">🏦</div>
-          <div class="fd-stat-label">Bank Balance</div>
-          <div class="fd-stat-value" id="bankBalance">₹0</div>
+      <!-- 4 stat cards -->
+      <div class="fin2-grid">
+        <div class="fin2-card fin2-bank">
+          <div class="fin2-card-icon">🏦</div>
+          <div class="fin2-card-label">Bank Balance</div>
+          <div class="fin2-card-value" id="bankBalance">₹0</div>
         </div>
-        <div class="fd-stat fd-stat-cash">
-          <div class="fd-stat-icon">💵</div>
-          <div class="fd-stat-label">Cash Balance</div>
-          <div class="fd-stat-value" id="cashBalance">₹0</div>
+        <div class="fin2-card fin2-cash">
+          <div class="fin2-card-icon">💵</div>
+          <div class="fin2-card-label">Cash Balance</div>
+          <div class="fin2-card-value" id="cashBalance">₹0</div>
         </div>
-        <div class="fd-stat fd-stat-total">
-          <div class="fd-stat-icon">📊</div>
-          <div class="fd-stat-label">Total Balance</div>
-          <div class="fd-stat-value" id="totalBalance">₹0</div>
+        <div class="fin2-card fin2-total">
+          <div class="fin2-card-icon">📊</div>
+          <div class="fin2-card-label">Total Balance</div>
+          <div class="fin2-card-value" id="totalBalance">₹0</div>
         </div>
-        <div class="fd-stat fd-stat-expense">
-          <div class="fd-stat-icon">📉</div>
-          <div class="fd-stat-label">This Month Expense</div>
-          <div class="fd-stat-value" id="monthlyExpense">₹0</div>
+        <div class="fin2-card fin2-expense">
+          <div class="fin2-card-icon">📉</div>
+          <div class="fin2-card-label">This Month Expense</div>
+          <div class="fin2-card-value" id="monthlyExpense">₹0</div>
         </div>
       </div>
 
       <!-- Profit banner -->
-      <div class="fd-profit-banner">
-        <div class="fd-profit-left">
-          <div class="fd-profit-label">📈 This Month Profit</div>
-          <div class="fd-profit-sub">Income − Expense (Current Month)</div>
+      <div class="fin2-profit">
+        <div>
+          <div class="fin2-profit-label">📈 This Month Profit</div>
+          <div class="fin2-profit-sub">Income − Expense (Current Month)</div>
         </div>
-        <div class="fd-profit-amount" id="monthlyProfit">₹0.00</div>
+        <div class="fin2-profit-amount" id="monthlyProfit">₹0.00</div>
       </div>
 
       <!-- Note modal -->
@@ -562,51 +644,51 @@
       </div>
 
       <!-- Opening Balance -->
-      <div class="fd-section-label">Set Opening Balance</div>
-      <div class="fd-panel">
-        <div class="fd-panel-body fd-balance-row">
-          <input class="fd-input" type="number" id="openingBank" placeholder="Opening Bank Balance">
-          <input class="fd-input" type="number" id="openingCash" placeholder="Opening Cash Balance">
-          <button onclick="setFinanceOpeningBalance()" class="fd-btn-primary">Set Balance</button>
+      <div class="fin2-section-label">Set Opening Balance</div>
+      <div class="fin2-panel">
+        <div class="fin2-panel-body">
+          <input class="fin2-inp" type="number" id="openingBank" placeholder="Opening Bank Balance">
+          <input class="fin2-inp" type="number" id="openingCash" placeholder="Opening Cash Balance">
+          <button onclick="setFinanceOpeningBalance()" class="fin2-btn-primary">Set Balance</button>
         </div>
-        <div class="fd-reset-row">
-          <button onclick="resetFinanceBalance()" class="fd-btn-danger">🗑 Reset Balance</button>
-          <button onclick="resetMonthlyExpense()" class="fd-btn-warning">🔄 Reset Month Expense</button>
-          <button onclick="resetMonthlyProfit()" class="fd-btn-purple">🔄 Reset Month Profit</button>
+        <div class="fin2-reset-row">
+          <button onclick="resetFinanceBalance()" class="fin2-btn-red">🗑 Reset Balance</button>
+          <button onclick="resetMonthlyExpense()" class="fin2-btn-amber">🔄 Reset Month Expense</button>
+          <button onclick="resetMonthlyProfit()" class="fin2-btn-purple">🔄 Reset Month Profit</button>
         </div>
       </div>
 
       <!-- Add Transaction -->
-      <div class="fd-section-label">Add Transaction</div>
-      <div class="fd-panel">
-        <div class="fd-panel-body fd-txn-form">
-          <select class="fd-input" id="transactionType">
+      <div class="fin2-section-label">Add Transaction</div>
+      <div class="fin2-panel">
+        <div class="fin2-panel-body">
+          <select class="fin2-inp" id="transactionType">
             <option value="debit">Expense</option>
             <option value="credit">Income</option>
           </select>
-          <input class="fd-input" type="date" id="txnDate">
-          <select class="fd-input" id="paidTo"><option value="">Select Person</option></select>
-          <select class="fd-input" id="category">
+          <input class="fin2-inp" type="date" id="txnDate">
+          <select class="fin2-inp" id="paidTo"><option value="">Select Person</option></select>
+          <select class="fin2-inp" id="category">
             <option value="salary">Salary</option>
             <option value="vendor">Vendor Payment</option>
             <option value="expense">Other Expense</option>
             <option value="income">Client Payment</option>
           </select>
-          <select class="fd-input" id="paymentMode">
+          <select class="fin2-inp" id="paymentMode">
             <option value="upi">UPI</option>
             <option value="cash">Cash</option>
             <option value="netbanking">Netbanking</option>
           </select>
-          <input class="fd-input" type="number" id="amount" placeholder="Amount">
-          <input class="fd-input" type="text" id="notes" placeholder="Notes (optional)">
-          <button onclick="addFinanceTransaction()" class="fd-btn-primary fd-add-btn">+ Add Transaction</button>
+          <input class="fin2-inp" type="number" id="amount" placeholder="Amount">
+          <input class="fin2-inp" type="text" id="notes" placeholder="Notes (optional)">
+          <button onclick="addFinanceTransaction()" class="fin2-btn-primary">+ Add Transaction</button>
         </div>
       </div>
 
       <!-- Transactions table -->
-      <div class="fd-section-label">Transactions</div>
-      <div class="fd-panel fd-table-panel">
-        <div class="finance-table-wrapper">
+      <div class="fin2-section-label">Transactions</div>
+      <div class="fin2-panel" style="padding:0;overflow:hidden;">
+        <div class="finance-table-wrapper" style="border:none;border-radius:0;box-shadow:none;">
           <table>
             <thead>
               <tr>
@@ -618,6 +700,7 @@
           </table>
         </div>
       </div>
+
     </section>
 
     <section id="leaveSection" class="sub-section">
