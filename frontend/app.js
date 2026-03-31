@@ -15,7 +15,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const storage = firebase.storage();
+
 
 // ── Firestore helpers ──────────────────────────────────────
 const col    = name     => db.collection(name);
@@ -51,6 +51,16 @@ async function queryItems(colName, field, op, value) {
     const snap = await col(colName).where(field, op, value).get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+function toggleUserMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('erpUserMenu');
+    if (!menu) return;
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', () => {
+    const menu = document.getElementById('erpUserMenu');
+    if (menu) menu.style.display = 'none';
+});
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -89,30 +99,35 @@ function setSelectOptions(select, options, placeholder) {
     });
 }
 
-async function uploadFileToStorage(file, folder, prefix = 'file') {
-    const safeFolder = String(folder || 'uploads').replace(/[^a-zA-Z0-9/_-]+/g, '_');
-    const safePrefix = sanitizeFileName(prefix);
-    const safeName = sanitizeFileName(file?.name);
-    const storagePath = `${safeFolder}/${Date.now()}-${safePrefix}-${safeName}`;
-    const ref = storage.ref().child(storagePath);
-    const snapshot = await ref.put(file, { contentType: file?.type || 'application/octet-stream' });
-    const downloadURL = await snapshot.ref.getDownloadURL();
-    return { storagePath, downloadURL };
+// Files stored as base64 in Firestore — no Firebase Storage needed
+async function uploadFileToStorage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve({
+            storagePath: null,
+            downloadURL: null,
+            base64Data: e.target.result
+        });
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+    });
 }
 
 async function deleteStoredFile(storagePath) {
-    if (!storagePath) return;
-    try {
-        await storage.ref().child(storagePath).delete();
-    } catch (err) {
-        if (err?.code !== 'storage/object-not-found') throw err;
-    }
+    // No-op — file data deleted with Firestore document
+    return;
 }
 
 function getDocumentSource(doc) {
+    // base64Data is the primary source (Firestore storage)
+    const b64 = typeof doc?.base64Data === 'string' ? doc.base64Data.trim() : '';
+    if (b64.startsWith('data:')) return b64;
+
+    // fallback: old downloadURL from Firebase Storage
     const remoteUrl = typeof doc?.downloadURL === 'string' ? doc.downloadURL.trim() : '';
     if (/^https?:\/\//i.test(remoteUrl)) return remoteUrl;
 
+    // legacy field
     const legacyDataUrl = typeof doc?.base64 === 'string' ? doc.base64.trim() : '';
     if (legacyDataUrl.startsWith('data:')) return legacyDataUrl;
 
@@ -175,11 +190,51 @@ firebase.auth().onAuthStateChanged(async function(user) {
         window._userRole = 'staff';
     }
 
-    // Show first letter of email in topbar avatar
+    // Build user menu in topbar avatar
     const avatarEl = document.querySelector('.topbar-avatar');
     if (avatarEl) {
-        avatarEl.textContent = (user.email || 'A')[0].toUpperCase();
-        avatarEl.title = user.email;
+        const initial = (user.email || 'A')[0].toUpperCase();
+        const roleColor = window._userRole === 'admin' ? '#7c3aed' : '#0891b2';
+        const roleBg    = window._userRole === 'admin' ? '#ede9fe' : '#e0f2fe';
+        const roleLabel = window._userRole === 'admin' ? '👑 Admin' : '👤 Staff';
+        avatarEl.innerHTML = `
+            <div class="erp-user-avatar" id="erpAvatarBtn" title="${user.email}" onclick="toggleUserMenu(event)"
+                style="width:36px;height:36px;background:${roleColor};color:#fff;border-radius:50%;
+                display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;cursor:pointer;
+                box-shadow:0 2px 8px rgba(0,0,0,.18);user-select:none;position:relative;">
+                ${initial}
+                <span style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;
+                    background:#22c55e;border-radius:50%;border:2px solid var(--surface,#fff);"></span>
+            </div>
+            <div id="erpUserMenu" style="display:none;position:absolute;top:52px;right:16px;
+                background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);
+                border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.18);min-width:240px;
+                z-index:9999;overflow:hidden;animation:fadeup .2s ease both;">
+                <div style="padding:16px 18px 12px;border-bottom:1px solid var(--border,#e2e8f0);">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:42px;height:42px;background:${roleColor};color:#fff;border-radius:50%;
+                            display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;flex-shrink:0;">
+                            ${initial}
+                        </div>
+                        <div>
+                            <div style="font-weight:700;font-size:13px;color:var(--text-1,#0f172a);margin-bottom:3px;">${user.email}</div>
+                            <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 10px;
+                                background:${roleBg};color:${roleColor};border-radius:100px;
+                                font-size:11px;font-weight:700;">${roleLabel}</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:8px;">
+                    <button onclick="firebase.auth().signOut().then(()=>{localStorage.removeItem('erpUser');window.location.href='login.html';})"
+                        style="width:100%;padding:10px 14px;background:none;border:none;border-radius:10px;
+                        text-align:left;font-size:13px;font-weight:600;color:#ef4444;cursor:pointer;
+                        display:flex;align-items:center;gap:9px;transition:background .15s;"
+                        onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
+                        <span style="font-size:16px;">🚪</span> Sign out
+                    </button>
+                </div>
+            </div>`;
+        avatarEl.style.position = 'relative';
     }
 
     applyRoleUI(window._userRole);
@@ -515,8 +570,9 @@ async function addEmployee() {
                     fileName:     aadharUpload.name,
                     fileType:     aadharUpload.type,
                     fileSize:     aadharUpload.size,
-                    storagePath:  uploaded.storagePath,
-                    downloadURL:  uploaded.downloadURL,
+                    storagePath:  null,
+                    downloadURL:  null,
+                    base64Data:   uploaded.base64Data,
                     notes:        'Uploaded during employee registration'
                 });
             } catch (uploadErr) {
@@ -855,22 +911,26 @@ async function commitStatusUpdate(empId, newStatus, workPlace, selectEl) {
         if (selectEl) selectEl.dataset.lastGood = newStatus;
 
         // Update work location display
+// Update work location display — find the whole row and re-render just the detail block
         const workDetailEl = document.getElementById(`workDetail-${empId}`);
         if (workDetailEl) {
             if (newStatus === 'Working' && workPlace) {
-                workDetailEl.style.display = '';
-                workDetailEl.textContent = workPlace;
-                // ensure parent wrapper is visible
-                const wrapper = workDetailEl.closest('div[style*="background:#f0fdf4"]');
-                if (!wrapper) {
-                    workDetailEl.insertAdjacentHTML('beforebegin',
-                        `<div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#16a34a;font-weight:600;">📍 <span>${escapeHtml(workPlace)}</span></div>`);
-                }
+                // Replace the entire workDetail element with the full green pill
+                // This avoids the double-render bug where insertAdjacentHTML
+                // creates a second pill when the wrapper style doesn't match exactly
+                const pill = document.createElement('div');
+                pill.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#16a34a;font-weight:600;';
+                pill.id = `workDetail-${empId}`;
+                pill.innerHTML = `📍 <span>${escapeHtml(workPlace)}</span>`;
+                workDetailEl.replaceWith(pill);
             } else {
-                workDetailEl.style.display = 'none';
+                // Status is no longer Working — replace with hidden empty div
+                const empty = document.createElement('div');
+                empty.id = `workDetail-${empId}`;
+                empty.style.display = 'none';
+                workDetailEl.replaceWith(empty);
             }
         }
-
         // Update status badge in new card layout
         const badge = document.getElementById(`statusbadge-${empId}`);
         const statusColor = {
@@ -2223,23 +2283,28 @@ async function saveDocument() {
     const file    = document.getElementById('docFileInput').files[0];
     if (!empId)  { alert('Please select an employee.'); return; }
     if (!file)   { alert('Please choose a file.'); return; }
-    if (file.size / 1024 / 1024 > 10) { alert('File too large. Max 10 MB.'); return; }
+    if (file.size / 1024 > 700) { alert('File too large. Max 700 KB.\n\nTip: Compress images or use a smaller PDF.'); return; }
     try {
+        showNotification('⏳ Saving document...', 'info');
         const emp = await getById('employees', empId);
-        const uploaded = await uploadFileToStorage(file, `employee-documents/${empId}`, docType || 'document');
+        const uploaded = await uploadFileToStorage(file);
         await addItem('documents', {
             employeeId:   empId,
             employeeName: `${emp.firstName} ${emp.lastName || ''}`,
             docType, fileName: file.name, fileType: file.type,
             fileSize: file.size, notes,
-            storagePath: uploaded.storagePath,
-            downloadURL: uploaded.downloadURL
+            storagePath: null,
+            downloadURL: null,
+            base64Data: uploaded.base64Data
         });
-        showNotification('📎 Document uploaded', 'success');
+        showNotification('📎 Document saved successfully', 'success');
         closeDocUploadModal();
         await renderDocumentCards();
         updateDocSummaryCards();
-    } catch (err) { showNotification('❌ Failed to upload document', 'warning'); }
+    } catch (err) {
+        console.error('saveDocument error:', err);
+        showNotification('❌ Failed to save. File may be too large.', 'warning');
+    }
 }
 
 async function renderDocumentCards() {
@@ -2669,21 +2734,77 @@ function loadDarkMode() {
 // ===============================
 // AUTO LOGOUT
 // ===============================
-let inactivityTimer, warningTimer;
+let inactivityTimer, warningTimer, warningPopupActive = false;
+
+function removeWarningPopup() {
+    const pop = document.getElementById('autoLogoutWarningPopup');
+    if (pop) pop.remove();
+    warningPopupActive = false;
+}
+
+function showWarningPopup(secondsLeft) {
+    if (document.getElementById('autoLogoutWarningPopup')) return;
+    warningPopupActive = true;
+    let countdown = secondsLeft;
+    const popup = document.createElement('div');
+    popup.id = 'autoLogoutWarningPopup';
+    popup.innerHTML = `
+        <div id="alwBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:99998;"></div>
+        <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;
+            background:var(--surface,#fff);border-radius:20px;padding:36px 40px;text-align:center;
+            box-shadow:0 24px 80px rgba(0,0,0,0.25);max-width:380px;width:90%;
+            border:1px solid var(--border,#e2e8f0);animation:alwPop .35s cubic-bezier(.34,1.56,.64,1) both;">
+            <div style="font-size:52px;margin-bottom:12px;">⏳</div>
+            <h3 style="font-size:20px;font-weight:800;margin:0 0 8px;color:var(--text-1,#0f172a);letter-spacing:-.03em;">Session Expiring</h3>
+            <p style="font-size:13.5px;color:var(--text-2,#475569);margin:0 0 20px;line-height:1.6;">
+                You've been inactive. You'll be signed out in
+            </p>
+            <div id="alwCountdown" style="font-size:48px;font-weight:900;color:#ef4444;letter-spacing:-.04em;margin-bottom:20px;font-family:'Plus Jakarta Sans',sans-serif;">${countdown}</div>
+            <p style="font-size:11.5px;color:var(--text-3,#94a3b8);margin:0 0 24px;">seconds</p>
+            <button onclick="keepSessionAlive()" style="width:100%;padding:13px 20px;background:var(--brand,#4f46e5);color:#fff;border:none;border-radius:12px;
+                font-size:14px;font-weight:700;cursor:pointer;letter-spacing:-.01em;
+                box-shadow:0 4px 16px rgba(79,70,229,.32);transition:background .18s;">
+                ✋ Keep me signed in
+            </button>
+        </div>`;
+    const style = document.createElement('style');
+    style.textContent = `@keyframes alwPop{from{opacity:0;transform:translate(-50%,-50%) scale(.85);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}`;
+    document.head.appendChild(style);
+    document.body.appendChild(popup);
+
+    const timer = setInterval(() => {
+        countdown--;
+        const el = document.getElementById('alwCountdown');
+        if (el) el.textContent = countdown;
+        if (countdown <= 0) clearInterval(timer);
+    }, 1000);
+    popup._countdownInterval = timer;
+}
+
+function keepSessionAlive() {
+    removeWarningPopup();
+    resetInactivityTimer();
+}
+
 function resetInactivityTimer() {
+    if (warningPopupActive) return;
     clearTimeout(inactivityTimer);
     clearTimeout(warningTimer);
-    warningTimer    = setTimeout(() => alert('You will be logged out in 1 minute due to inactivity.'), 4 * 60 * 1000);
-    inactivityTimer = setTimeout(() => {
-        alert('Logged out due to inactivity.');
-        firebase.auth().signOut().then(() => {
-            localStorage.removeItem('erpUser');
-            window.location.href = 'login.html';
-        });
-    }, 5 * 60 * 1000);
+
+    warningTimer = setTimeout(() => {
+        showWarningPopup(60);
+        inactivityTimer = setTimeout(() => {
+            removeWarningPopup();
+            firebase.auth().signOut().then(() => {
+                localStorage.removeItem('erpUser');
+                window.location.href = 'login.html';
+            });
+        }, 60 * 1000);
+    }, 4 * 60 * 1000);
 }
-['mousemove','keydown','click','scroll'].forEach(event => {
-    document.addEventListener(event, resetInactivityTimer);
+
+['mousemove','keydown','click','scroll','touchstart'].forEach(event => {
+    document.addEventListener(event, () => { if (!warningPopupActive) resetInactivityTimer(); });
 });
 
 // ===============================

@@ -14,90 +14,51 @@
   </style>
 </head>
 <body>
+  <canvas id="northernLightsCanvas"></canvas>
 
 <div class="layout">
 
   <!-- Mobile sidebar overlay -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
 
-  <!-- ===== SIDEBAR ===== -->
+  <!-- ===== RAIL ===== -->
   <aside class="sidebar" id="mainSidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-brand-icon"><img src="logo.png" alt="Sumukha" style="width:44px;height:44px;object-fit:contain;border-radius:8px;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span style="display:none;font-size:22px;">🏥</span></div>
-      <div>
-        <div class="sidebar-brand-name">Sumukha ERP</div>
-        <div class="sidebar-brand-sub">Nursing Services</div>
+      <div class="sidebar-brand-icon" onclick="togglePanel('dashboard')" title="Sumukha ERP">
+        <img src="logo.png" alt="S" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span style="display:none;font-size:14px;">🏥</span>
       </div>
-      <button class="sidebar-close-btn" onclick="toggleMobileSidebar()" aria-label="Close">✕</button>
     </div>
 
     <nav class="sidebar-nav">
-      <button class="nav-item" onclick="showSection('dashboard')">
-        <span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span>
+      <button class="nav-item" onclick="togglePanel('dashboard')" data-tip="Dashboard" id="rail-dashboard">
+        <span class="nav-icon">🏠</span>
       </button>
-
-      <button class="nav-item nav-parent" onclick="toggleEmployeeMenu()">
-        <span class="nav-icon">👥</span><span class="nav-label">Employees</span><span class="nav-arrow">▾</span>
+      <button class="nav-item" onclick="togglePanel('employees')" data-tip="Employees" id="rail-employees">
+        <span class="nav-icon">👥</span>
       </button>
-      <div id="employeeMenu" class="nav-submenu" style="display:none;">
-        <button class="nav-item nav-child" onclick="showSection('addEmployee')">
-          <span class="nav-icon">➕</span><span class="nav-label">Add Employee</span>
-        </button>
-        <button class="nav-item nav-child" onclick="showSection('allEmployees')">
-          <span class="nav-icon">📋</span><span class="nav-label">All Employees</span>
-        </button>
-        <button class="nav-item nav-child" onclick="showSection('employeeStatus')">
-          <span class="nav-icon">🔄</span><span class="nav-label">Employee Status</span>
-        </button>
-        <button class="nav-item nav-child" onclick="showSection('documentsSection')">
-          <span class="nav-icon">📁</span><span class="nav-label">Documents</span>
-        </button>
-      </div>
-
-      <button class="nav-item" onclick="showSection('salarySection')">
-        <span class="nav-icon">💵</span><span class="nav-label">Salary</span>
+      <button class="nav-item" onclick="togglePanel('salary')" data-tip="Salary" id="rail-salary">
+        <span class="nav-icon">💵</span>
       </button>
-
-      <button class="nav-item" onclick="showSection('financeSection')">
-        <span class="nav-icon">💰</span><span class="nav-label">Finance</span>
+      <button class="nav-item" onclick="togglePanel('finance')" data-tip="Finance" id="rail-finance">
+        <span class="nav-icon">💰</span>
       </button>
-
-      <button class="nav-item nav-parent" onclick="toggleInvoiceMenu()">
-        <span class="nav-icon">🧾</span><span class="nav-label">Invoice</span><span class="nav-arrow">▾</span>
+      <button class="nav-item" onclick="togglePanel('invoice')" data-tip="Invoice" id="rail-invoice">
+        <span class="nav-icon">🧾</span>
       </button>
-      <div id="invoiceMenu" class="nav-submenu" style="display:none;">
-        <button class="nav-item nav-child" onclick="openCreateInvoice('gst')">
-          <span class="nav-icon">✏️</span><span class="nav-label">Create GST Invoice</span>
-        </button>
-        <button class="nav-item nav-child" onclick="openCreateInvoice('nongst')">
-          <span class="nav-icon">📝</span><span class="nav-label">Create Non-GST</span>
-        </button>
-        <button class="nav-item nav-child" onclick="showSection('allInvoices')">
-          <span class="nav-icon">📄</span><span class="nav-label">All Invoices</span>
-        </button>
-        <button class="nav-item nav-child" onclick="showSection('customerSection')">
-          <span class="nav-icon">🏢</span><span class="nav-label">Customers</span>
-        </button>
-      </div>
-
-      <button class="nav-item" onclick="showSection('leaveSection')">
-        <span class="nav-icon">🗓️</span><span class="nav-label">Leave Management</span>
+      <button class="nav-item" onclick="togglePanel('leave')" data-tip="Leave" id="rail-leave">
+        <span class="nav-icon">🗓️</span>
       </button>
-
-      <button class="nav-item" onclick="showSection('attendanceSection')">
-        <span class="nav-icon">📅</span><span class="nav-label">Attendance</span>
+      <button class="nav-item" onclick="togglePanel('attendance')" data-tip="Attendance" id="rail-attendance">
+        <span class="nav-icon">📅</span>
       </button>
-
-      <button class="nav-item" onclick="showSection('settingsSection')">
-        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      <button class="nav-item" onclick="togglePanel('settings')" data-tip="Settings" id="rail-settings">
+        <span class="nav-icon">⚙️</span>
       </button>
     </nav>
 
-    <!-- Dark mode toggle in sidebar footer -->
     <div class="sidebar-footer">
-      <label class="sidebar-dark-toggle">
-        <span class="nav-icon">🌙</span>
-        <span class="sidebar-toggle-label">Dark Mode</span>
+      <label class="sidebar-dark-toggle" title="Dark Mode">
         <div class="sidebar-toggle-track">
           <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
           <span class="sidebar-toggle-thumb"></span>
@@ -105,6 +66,15 @@
       </label>
     </div>
   </aside>
+
+  <!-- ===== CONTEXTUAL PANEL ===== -->
+  <div id="contextPanel">
+    <div class="ctx-header">
+      <span class="ctx-title" id="ctxTitle">Dashboard</span>
+      <button class="ctx-close" onclick="closePanel()" title="Close">✕</button>
+    </div>
+    <div class="ctx-body" id="ctxBody"></div>
+  </div>
 
   <!-- ===== MAIN WRAPPER ===== -->
   <div class="main-wrapper">
@@ -1178,30 +1148,269 @@
 <script src="app.js"></script>
 
 <script>
-function toggleMobileSidebar() {
-  const sidebar = document.getElementById('mainSidebar');
+/* ====================================================
+   RAIL + CONTEXTUAL PANEL NAVIGATION
+   ==================================================== */
+
+const PANELS = {
+  dashboard: {
+    title: '🏠 Dashboard',
+    items: [
+      { icon: '🏠', label: 'Dashboard', fn: "showSection('dashboard')", id: 'dashboard' }
+    ]
+  },
+  employees: {
+    title: '👥 Employees',
+    items: [
+      { icon: '➕', label: 'Add Employee',    fn: "showSection('addEmployee')",    id: 'addEmployee' },
+      { icon: '📋', label: 'All Employees',   fn: "showSection('allEmployees')",   id: 'allEmployees' },
+      { icon: '🔄', label: 'Employee Status', fn: "showSection('employeeStatus')", id: 'employeeStatus' },
+      { icon: '📁', label: 'Documents',       fn: "showSection('documentsSection')", id: 'documentsSection' }
+    ]
+  },
+  salary: {
+    title: '💵 Salary',
+    items: [
+      { icon: '💵', label: 'Salary Management', fn: "showSection('salarySection')", id: 'salarySection' }
+    ]
+  },
+  finance: {
+    title: '💰 Finance',
+    items: [
+      { icon: '💰', label: 'Finance Dashboard', fn: "showSection('financeSection')", id: 'financeSection' }
+    ]
+  },
+  invoice: {
+    title: '🧾 Invoice',
+    items: [
+      { icon: '✏️', label: 'Create GST Invoice', fn: "openCreateInvoice('gst')",    id: 'createInvoice' },
+      { icon: '📝', label: 'Create Non-GST',     fn: "openCreateInvoice('nongst')", id: 'createInvoice' },
+      { icon: '📄', label: 'All Invoices',        fn: "showSection('allInvoices')",  id: 'allInvoices' },
+      { icon: '🏢', label: 'Customers',           fn: "showSection('customerSection')", id: 'customerSection' }
+    ]
+  },
+  leave: {
+    title: '🗓️ Leave',
+    items: [
+      { icon: '🗓️', label: 'Leave Management', fn: "showSection('leaveSection')", id: 'leaveSection' }
+    ]
+  },
+  attendance: {
+    title: '📅 Attendance',
+    items: [
+      { icon: '📅', label: 'Attendance Tracker', fn: "showSection('attendanceSection')", id: 'attendanceSection' }
+    ]
+  },
+  settings: {
+    title: '⚙️ Settings',
+    items: [
+      { icon: '⚙️', label: 'System Settings', fn: "showSection('settingsSection')", id: 'settingsSection' }
+    ]
+  }
+};
+
+let _activePanel = null;
+let _activeSection = 'dashboard';
+
+function togglePanel(key) {
+  const panel   = document.getElementById('contextPanel');
+  const layout  = document.querySelector('.layout');
   const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.toggle('sidebar-open');
-  overlay.classList.toggle('overlay-visible');
-  document.body.classList.toggle('sidebar-is-open');
-}
-// Close sidebar when a nav item is clicked on mobile
-document.querySelectorAll('.nav-item').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (window.innerWidth <= 768) {
-      const sidebar = document.getElementById('mainSidebar');
-      const overlay = document.getElementById('sidebarOverlay');
-      sidebar.classList.remove('sidebar-open');
-      overlay.classList.remove('overlay-visible');
-      document.body.classList.remove('sidebar-is-open');
-    }
+
+  /* clicking same rail icon closes panel */
+  if (_activePanel === key && panel.classList.contains('open')) {
+    closePanel(); return;
+  }
+
+  /* single-item panels — open section directly, no panel needed */
+  const data = PANELS[key];
+  if (!data) return;
+
+  if (data.items.length === 1) {
+    closePanel();
+    eval(data.items[0].fn);
+    setRailActive(key);
+    _activePanel = key;
+    return;
+  }
+
+  /* build panel content */
+  _activePanel = key;
+  document.getElementById('ctxTitle').textContent = data.title;
+  const body = document.getElementById('ctxBody');
+  body.innerHTML = '';
+  data.items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'ctx-item';
+    btn.innerHTML = '<span class="ctx-item-icon">' + item.icon + '</span><span class="ctx-item-label">' + item.label + '</span>';
+    btn.onclick = function() {
+      eval(item.fn);
+      /* mark active ctx item */
+      body.querySelectorAll('.ctx-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (window.innerWidth <= 768) closePanel();
+    };
+    body.appendChild(btn);
   });
+
+  panel.classList.add('open');
+  layout.classList.add('panel-open');
+  setRailActive(key);
+
+  /* mobile overlay */
+  if (window.innerWidth <= 768) overlay.classList.add('overlay-visible');
+}
+
+function closePanel() {
+  const panel   = document.getElementById('contextPanel');
+  const layout  = document.querySelector('.layout');
+  const overlay = document.getElementById('sidebarOverlay');
+  panel.classList.remove('open');
+  layout.classList.remove('panel-open');
+  overlay.classList.remove('overlay-visible');
+  _activePanel = null;
+}
+
+function setRailActive(key) {
+  document.querySelectorAll('.nav-item[id^="rail-"]').forEach(b => b.classList.remove('nav-active'));
+  const btn = document.getElementById('rail-' + key);
+  if (btn) btn.classList.add('nav-active');
+}
+
+/* Mobile hamburger — opens panel overlay */
+function toggleMobileSidebar() {
+  togglePanel(_activePanel || 'dashboard');
+}
+
+/* Map section IDs back to rail keys for topbar active state */
+function getRailKey(sectionId) {
+  const map = {
+    dashboard:'dashboard', addEmployee:'employees', allEmployees:'employees',
+    employeeStatus:'employees', documentsSection:'employees',
+    salarySection:'salary', financeSection:'finance',
+    createInvoice:'invoice', allInvoices:'invoice', customerSection:'invoice',
+    leaveSection:'leave', attendanceSection:'attendance', settingsSection:'settings'
+  };
+  return map[sectionId] || null;
+}
+
+/* Override showSection to also update rail active state */
+const _origShowSection = typeof showSection === 'function' ? showSection : null;
+document.addEventListener('DOMContentLoaded', function() {
+  /* patch showSection after app.js loads */
+  const origFn = window.showSection;
+  if (origFn) {
+    window.showSection = function(id) {
+      origFn(id);
+      _activeSection = id;
+      const key = getRailKey(id);
+      if (key) setRailActive(key);
+    };
+  }
+
+  /* open dashboard panel on load */
+  setTimeout(() => togglePanel('dashboard'), 100);
 });
+
+/* Close panel on overlay click */
+document.getElementById('sidebarOverlay').addEventListener('click', closePanel);
 </script>
 
 <div id="notificationContainer"></div>
 
 <!-- Auth guard handled by app.js -->
+ <script>
+(function () {
+  const canvas = document.getElementById('northernLightsCanvas');
+  const ctx = canvas.getContext('2d');
 
+  // Offscreen canvas — we paint to this, then stamp to screen in ONE draw call
+  const off = document.createElement('canvas');
+  const offCtx = off.getContext('2d');
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    off.width     = window.innerWidth;
+    off.height    = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const bands = [
+    { col: [99, 102, 241],  sp: 1800, ph: 0.0,  yw: 0.28 },
+    { col: [124, 58, 237],  sp: 2600, ph: 2.1,  yw: 0.48 },
+    { col: [56, 189, 248],  sp: 2200, ph: 1.0,  yw: 0.65 },
+    { col: [167, 139, 250], sp: 3200, ph: 3.3,  yw: 0.38 },
+    { col: [79,  70, 229],  sp: 2900, ph: 1.8,  yw: 0.75 },
+  ];
+
+  // Throttle to ~30fps — smooth enough, half the CPU cost
+  let lastFrame = 0;
+  const FPS = 30;
+  const INTERVAL = 1000 / FPS;
+
+  // Step size — instead of 4px columns, use 12px
+  // Visually identical at full screen, 3x fewer draw calls
+  const STEP = 12;
+
+  function draw(t) {
+    requestAnimationFrame(draw);
+
+    // Throttle
+    if (t - lastFrame < INTERVAL) return;
+    lastFrame = t;
+
+    const W = off.width;
+    const H = off.height;
+    const dark = document.body.classList.contains('dark-mode');
+
+    offCtx.fillStyle = dark ? '#010108' : '#f5f3ff';
+    offCtx.fillRect(0, 0, W, H);
+
+    bands.forEach((b) => {
+      const yc    = b.yw * H + Math.sin(t / b.sp + b.ph) * (H * 0.06);
+      const thick = H * 0.1 + Math.sin(t / (b.sp * 1.3) + b.ph) * (H * 0.04);
+      const alpha = dark ? 0.22 : 0.17;
+
+      // Draw whole band as ONE wide vertical gradient rect per band
+      // instead of per-pixel columns — massive perf win
+      const g = offCtx.createLinearGradient(0, yc - thick * 2, 0, yc + thick * 2);
+      g.addColorStop(0,    `rgba(${b.col}, 0)`);
+      g.addColorStop(0.5,  `rgba(${b.col}, ${alpha})`);
+      g.addColorStop(1,    `rgba(${b.col}, 0)`);
+
+      offCtx.beginPath();
+      offCtx.moveTo(0, yc - thick * 2);
+
+      // Top wave edge
+      for (let x = 0; x <= W; x += STEP) {
+        const wave =
+          Math.sin(x * 0.006 + t / b.sp * 1.5 + b.ph) * (H * 0.045) +
+          Math.sin(x * 0.012 + t / b.sp * 0.8 + b.ph) * (H * 0.022);
+        offCtx.lineTo(x, yc + wave - thick);
+      }
+
+      // Bottom wave edge (reverse)
+      for (let x = W; x >= 0; x -= STEP) {
+        const wave =
+          Math.sin(x * 0.006 + t / b.sp * 1.5 + b.ph) * (H * 0.045) +
+          Math.sin(x * 0.012 + t / b.sp * 0.8 + b.ph) * (H * 0.022);
+        offCtx.lineTo(x, yc + wave + thick);
+      }
+
+      offCtx.closePath();
+      offCtx.fillStyle = g;
+      offCtx.fill();
+    });
+
+    // Single blit to visible canvas
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(off, 0, 0);
+  }
+
+  requestAnimationFrame(draw);
+})();
+</script>
 </body>
 </html>
